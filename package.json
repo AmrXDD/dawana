@@ -1,0 +1,43 @@
+{
+  "name": "dawana",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.48.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "gsap": "^3.15.0",
+    "lenis": "^1.1.19",
+    "lucide-react": "^0.474.0",
+    "motion": "^11.18.2",
+    "next": "15.1.6",
+    "ogl": "^1.0.11",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-icons": "^5.7.0",
+    "recharts": "^2.15.1",
+    "resend": "^4.1.2",
+    "server-only": "^0.0.1",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.3",
+    "@types/node": "^22.12.0",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^4.0.3",
+    "typescript": "^5.7.3"
+  }
+}

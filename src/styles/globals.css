@@ -1,0 +1,614 @@
+@import "tailwindcss";
+
+/* ============================================================
+   DAWANA — DESIGN SYSTEM
+   Palette locked to brand book: #ffffff #5cbca7 #035a51 #000000
+   Extended with derived tints/shades + warm paper tone.
+   ============================================================ */
+
+@theme {
+  /* ---- Brand core (from "Beyond The Logo" palette) ---- */
+  --color-mint-50: #f0faf7;
+  --color-mint-100: #dbf3ec;
+  --color-mint-200: #b9e6d9;
+  --color-mint-300: #8ed4c2;
+  --color-mint-400: #5cbca7; /* BRAND MINT */
+  --color-mint-500: #3fa68f;
+  --color-mint-600: #2d8874;
+  --color-mint-700: #266e5f;
+  --color-mint-800: #18564c;
+  --color-mint-900: #035a51; /* BRAND DEEP TEAL */
+  --color-mint-950: #04221f;
+
+  --color-deep: #035a51;
+  --color-mint: #5cbca7;
+
+  /* ---- Paper / ink ---- */
+  --color-paper: #f5f2ed; /* warm bone — the premium print surface */
+  --color-paper-pure: #ffffff;
+  --color-paper-sunk: #ebe6dd;
+  --color-ink: #04221f; /* near-black teal, never pure #000 for body */
+  --color-ink-soft: #3d5a55;
+  --color-ink-faint: #7d928d;
+  --color-hairline: rgba(3, 90, 81, 0.14);
+
+  /* ---- Night surfaces (admin + dark sections) ---- */
+  --color-night: #04221f;
+  --color-night-raised: #072e2a;
+  --color-night-hi: #0b3b35;
+  --color-night-line: rgba(92, 188, 167, 0.16);
+
+  /* ---- Signal ---- */
+  --color-signal-good: #3fa68f;
+  --color-signal-warn: #c8922f;
+  --color-signal-bad: #c0483c;
+
+  /* ---- Type ---- */
+  --font-display: var(--font-bricolage), "Georgia", serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-jb), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Fluid display scale — clamp(min, fluid, max) */
+  --text-mega: clamp(3.25rem, 11vw, 11rem);
+  --text-mega--line-height: 0.86;
+  --text-mega--letter-spacing: -0.045em;
+
+  --text-hero: clamp(2.5rem, 7.2vw, 6.5rem);
+  --text-hero--line-height: 0.92;
+  --text-hero--letter-spacing: -0.038em;
+
+  --text-title: clamp(2rem, 4.4vw, 3.75rem);
+  --text-title--line-height: 1.02;
+  --text-title--letter-spacing: -0.03em;
+
+  --text-head: clamp(1.5rem, 2.4vw, 2.25rem);
+  --text-head--line-height: 1.14;
+  --text-head--letter-spacing: -0.02em;
+
+  --text-lede: clamp(1.075rem, 1.5vw, 1.4rem);
+  --text-lede--line-height: 1.55;
+  --text-lede--letter-spacing: -0.011em;
+
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.22em;
+
+  /* ---- Spacing rhythm ---- */
+  --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --spacing-band: clamp(5rem, 12vw, 11rem);
+
+  /* ---- Motion ---- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---- Radii: echo the capsule/pill motif from the mark ---- */
+  --radius-capsule: 999px;
+  --radius-card: 1.25rem;
+  --radius-tight: 0.5rem;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: auto; /* Lenis owns scrolling */
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: var(--color-mint);
+    color: var(--color-mint-950);
+  }
+
+  /* Never remove the focus ring — replace it with a better one. */
+  :focus-visible {
+    outline: 2px solid var(--color-mint-500);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Tabular numerals everywhere numbers must line up */
+  table,
+  [data-nums] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+@layer utilities {
+  .u-gutter {
+    padding-inline: var(--spacing-gutter);
+  }
+
+  .u-band {
+    padding-block: var(--spacing-band);
+  }
+
+  .u-shell {
+    width: 100%;
+    max-width: 90rem;
+    margin-inline: auto;
+    padding-inline: var(--spacing-gutter);
+  }
+
+  .u-shell-narrow {
+    width: 100%;
+    max-width: 58rem;
+    margin-inline: auto;
+    padding-inline: var(--spacing-gutter);
+  }
+
+  /* Eyebrow label — mono, tracked, uppercase. Used as the connective
+     tissue of the whole site so sections feel like one system. */
+  .u-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-eyebrow);
+    letter-spacing: var(--text-eyebrow--letter-spacing);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* Hairline rule matching the brand stationery */
+  .u-rule {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      var(--color-mint) 0%,
+      color-mix(in oklab, var(--color-mint) 40%, transparent) 60%,
+      transparent 100%
+    );
+  }
+
+  /* Paper grain — subtle tooth so flat colour doesn't read as "generated" */
+  .u-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+  }
+
+  .u-grain-dark::after {
+    mix-blend-mode: overlay;
+    opacity: 0.5;
+  }
+
+  /* Mask-reveal wrapper: child slides up from behind a clipped edge.
+     Deliberately does NOT set `display` — SplitText relies on an
+     `inline-block` utility so shards stay on one line. Setting display
+     here would win on source order and stack every word vertically. */
+  .u-mask {
+    overflow: hidden;
+    clip-path: inset(-0.1em 0 -0.2em 0);
+  }
+
+  /* Text that sits on the deep teal */
+  .u-on-deep {
+    color: var(--color-mint-100);
+  }
+
+  .u-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide until GSAP takes over, but keep it readable without JS */
+  .u-anim-ready [data-anim] {
+    visibility: hidden;
+  }
+
+  /* Scrollbar — thin, brand-tinted, only on dark panes */
+  .u-scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-mint) 45%, transparent)
+      transparent;
+  }
+  .u-scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .u-scroll-slim::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-mint) 45%, transparent);
+    border-radius: 999px;
+  }
+  .u-scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ============================================================
+   ECG PULSE — the signature brand motion
+   ============================================================ */
+
+@keyframes ecg-draw {
+  from {
+    stroke-dashoffset: var(--dash, 1200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ecg-sweep {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes pulse-blip {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.a-blip {
+  animation: pulse-blip 2.4s var(--ease-in-out-quart) infinite;
+}
+
+.a-marquee {
+  animation: marquee-x var(--speed, 42s) linear infinite;
+}
+
+.a-marquee-paused:hover .a-marquee {
+  animation-play-state: paused;
+}
+
+/* ============================================================
+   REDUCED MOTION — honour it properly, don't just shorten
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-anim] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}
+
+/* ============================================================
+   PRINT — receipts / contracts / proposals render through this.
+   A4, brand ink, no chrome.
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    width: 210mm;
+  }
+
+  .print\:hidden,
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  .doc-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    border-radius: 0 !important;
+    page-break-after: always;
+  }
+
+  .doc-sheet:last-child {
+    page-break-after: auto;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* ============================================================
+   VENDOR OVERRIDES — react-bits CardNav
+   The vendor file ships position:absolute + an 800px cap. We pin it,
+   widen it, and re-skin it to the brand rather than forking the source.
+   ============================================================ */
+
+.dawana-nav .card-nav-container {
+  position: fixed;
+  top: 1.1rem;
+  z-index: 60;
+  width: calc(100% - 2rem);
+  max-width: 74rem;
+}
+
+.dawana-nav .card-nav {
+  background-color: rgba(245, 242, 237, 0.82);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border: 1px solid var(--color-hairline);
+  border-radius: 999px;
+  box-shadow: 0 12px 34px -20px rgba(3, 90, 81, 0.5);
+  height: 64px;
+}
+
+/* Once open the pill relaxes into a card so the panels have square-ish
+   shoulders to sit against. */
+.dawana-nav .card-nav.open {
+  border-radius: 1.5rem;
+}
+
+.dawana-nav .card-nav-top {
+  height: 64px;
+  padding-inline: 0.55rem 0.55rem;
+}
+
+.dawana-nav .logo {
+  height: 26px;
+  width: auto;
+}
+
+.dawana-nav .card-nav-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding-inline: 1.4rem;
+  height: calc(100% - 0.9rem);
+  margin-block: 0.45rem;
+  font-family: var(--font-inter);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transition: background-color 0.3s var(--ease-out-quint);
+}
+
+.dawana-nav .card-nav-cta-button:hover {
+  background-color: var(--color-mint-950) !important;
+}
+
+.dawana-nav .nav-card {
+  border-radius: 1rem;
+}
+
+.dawana-nav .nav-card-label {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.dawana-nav .nav-card-link {
+  font-family: var(--font-inter);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: opacity 0.25s var(--ease-out-quint);
+}
+
+.dawana-nav .nav-card-link:hover {
+  opacity: 0.66;
+}
+
+.dawana-nav .hamburger-line {
+  background-color: var(--color-deep);
+}
+
+@media (max-width: 768px) {
+  .dawana-nav .card-nav-container {
+    top: 0.7rem;
+    width: calc(100% - 1.5rem);
+  }
+  .dawana-nav .card-nav,
+  .dawana-nav .card-nav-top {
+    height: 58px;
+  }
+}
+
+/* ============================================================
+   SECTION GRADING
+   Sections must never butt one flat colour against another. Every
+   dark band carries its own fade-in/fade-out so it dissolves into the
+   bone backdrop instead of cutting against it.
+   ============================================================ */
+
+/* Dark band that melts into the page at both edges. The middle stays
+   fully opaque so type keeps its contrast. */
+.u-band-dark {
+  background-image: linear-gradient(
+    180deg,
+    rgba(92, 188, 167, 0) 0%,
+    rgba(92, 188, 167, 0.2) 2.5%,
+    rgba(63, 166, 143, 0.5) 5%,
+    rgba(45, 136, 116, 0.78) 7.5%,
+    rgba(3, 90, 81, 0.94) 10%,
+    #05332e 13%,
+    #04221f 20%,
+    #062b27 42%,
+    #073c36 62%,
+    #052a26 80%,
+    #04221f 88%,
+    rgba(3, 90, 81, 0.94) 92%,
+    rgba(45, 136, 116, 0.78) 95%,
+    rgba(63, 166, 143, 0.5) 97.5%,
+    rgba(92, 188, 167, 0) 100%
+  );
+}
+
+/* The descent into the footer: image scrim → brand teal → night.
+   CTA band and footer share this ramp so the seam is invisible. */
+.u-band-descend-dark {
+  background-image: linear-gradient(
+    180deg,
+    #04221f 0%,
+    #06322d 10%,
+    #044a42 24%,
+    #04564e 38%,
+    #035a51 54%,
+    #04473f 72%,
+    #06302b 88%,
+    #04221f 100%
+  );
+}
+
+.u-band-descend {
+  background-image: linear-gradient(
+    180deg,
+    rgba(92, 188, 167, 0) 0%,
+    rgba(63, 166, 143, 0.42) 4%,
+    rgba(3, 90, 81, 0.82) 9%,
+    #05423b 15%,
+    #04564e 34%,
+    #035a51 52%,
+    #04473f 70%,
+    #06322d 86%,
+    #04221f 100%
+  );
+}
+
+.u-band-footer {
+  background-image:
+    radial-gradient(
+      120% 70% at 50% 0%,
+      rgba(92, 188, 167, 0.16) 0%,
+      transparent 62%
+    ),
+    linear-gradient(180deg, #04221f 0%, #041d1b 55%, #03100f 100%);
+}
+
+/* Soft edge fades for horizontal rails — replaces a hard overflow clip
+   so cards dissolve at the edges rather than being sliced. */
+.u-rail-mask {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 3.5%,
+    #000 96.5%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 3.5%,
+    #000 96.5%,
+    transparent 100%
+  );
+}
+
+/* Gradient card fills — used instead of a single flat brand colour. */
+.u-fill-deep {
+  background-image: linear-gradient(145deg, #06534a 0%, #035a51 42%, #032f2b 100%);
+}
+
+.u-fill-raised {
+  background-image: linear-gradient(
+    160deg,
+    rgba(92, 188, 167, 0.1) 0%,
+    rgba(7, 46, 42, 0.72) 45%,
+    rgba(4, 34, 31, 0.85) 100%
+  );
+}
+
+/* ============================================================
+   PAGE TRANSITIONS
+   ============================================================ */
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes veil-out {
+  0% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+}
+
+.a-page-in {
+  animation: page-in 0.62s var(--ease-out-quint) both;
+}
+
+.a-veil-out {
+  animation: veil-out 0.72s var(--ease-in-out-quart) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-page-in,
+  .a-veil-out {
+    animation: none !important;
+  }
+}
