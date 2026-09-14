@@ -673,6 +673,14 @@
   animation: dw-tagline 1.4s var(--ease-out-quint) 0.35s both;
 }
 
+/* The logo is only ever seen once. During the handover the navigation's own
+   logo is held invisible (opacity, so it still has layout and can be
+   measured); the loader's wordmark flies into that slot and the two swap on
+   the landing frame. No transition on .logo, so the swap is instant. */
+html[data-logo-handoff] .dawana-nav .logo {
+  opacity: 0;
+}
+
 .dw-loader__head {
   opacity: 0;
   transition: opacity 0.3s var(--ease-out-quint);

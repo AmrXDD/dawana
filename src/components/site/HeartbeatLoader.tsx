@@ -106,6 +106,16 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
     const timers: number[] = [];
     const later = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms));
 
+    /* The logo must only ever be seen once. While this attribute is set, CSS
+       keeps the navigation's own logo invisible, so as the site fades in there
+       is an empty slot rather than a second logo waiting where this one lands.
+       Every exit path — and unmount — releases it. */
+    const html = document.documentElement;
+    html.dataset.logoHandoff = "pending";
+    const releaseLogo = () => {
+      delete html.dataset.logoHandoff;
+    };
+
     const t0 = performance.now();
     let last = t0;
     let shown = 0;
@@ -152,8 +162,13 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
           easing: EASE_OUT,
           fill: "forwards",
         });
-        later(() => openRef.current(), 200);
-        later(() => doneRef.current(), 900);
+        // No glide (reduced motion, or no nav to land on): this copy fades
+        // out first, then the site — and its logo — fade in. Still only one.
+        later(() => {
+          releaseLogo();
+          openRef.current();
+        }, 720);
+        later(() => doneRef.current(), 820);
         return;
       }
 
@@ -162,7 +177,7 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
       const dy = to.top + to.height / 2 - (from.top + from.height / 2);
       const scale = to.height / from.height;
 
-      mark.animate(
+      const glide = mark.animate(
         [
           { transform: "translate3d(0, 0, 0) scale(1)" },
           { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scale})` },
@@ -170,19 +185,27 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
         { duration: 1050, delay: 140, easing: EASE_IN_OUT, fill: "forwards" },
       );
 
-      // The site fades up underneath while the mark is still in flight…
-      later(() => openRef.current(), 640);
+      // The site fades up underneath while the mark is in flight — with an
+      // empty slot in the nav where the logo will land. Early enough that the
+      // fade (0.9s) is effectively complete by the landing frame.
+      later(() => openRef.current(), 520);
 
-      // …and the loader's copy hands over to the real nav logo as it lands
-      // (glide ends at 1190ms). Same asset, same position: a seamless swap.
-      mark.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: 300,
-        delay: 1120,
-        easing: "linear",
-        fill: "forwards",
-      });
-
-      later(() => doneRef.current(), 1500);
+      /* Landing. In the same frame the travelling mark vanishes and the nav's
+         logo appears: identical file, identical size and position, so the
+         swap is invisible — no crossfade, and never two logos at once. Bound
+         to the animation's own finish rather than a guessed timeout, with a
+         timer as a backstop in case the tab is hidden mid-flight and the
+         animation clock stops. */
+      let landed = false;
+      const land = () => {
+        if (landed) return;
+        landed = true;
+        mark.style.visibility = "hidden";
+        releaseLogo();
+        later(() => doneRef.current(), 120);
+      };
+      glide.onfinish = land;
+      later(land, 140 + 1050 + 400);
     };
 
     const finish = (animate: boolean) => {
@@ -198,6 +221,7 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
       }
 
       if (!animate) {
+        releaseLogo();
         openRef.current();
         doneRef.current();
         return;
@@ -249,6 +273,8 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
       cancelAnimationFrame(raf);
       timers.forEach((id) => window.clearTimeout(id));
       window.removeEventListener("load", onLoad);
+      // Never leave the nav logo hidden, whatever path got us here.
+      releaseLogo();
     };
   }, []);
 
@@ -265,6 +291,9 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
               width={1804}
               height={783}
               priority
+              // Same file URL as the nav logo, not a resized variant: the landing
+              // swap shows the identical bitmap, already decoded and cached.
+              unoptimized
               className="dw-loader__word h-auto w-[136px] md:w-[160px]"
             />
           </div>
