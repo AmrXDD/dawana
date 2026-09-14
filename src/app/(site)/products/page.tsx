@@ -18,8 +18,12 @@ export const metadata: Metadata = {
     "Browse the Dawana portfolio across six therapeutic areas, supplied to hospitals, clinics and pharmacies throughout Kuwait.",
 };
 
-// Catalogue changes rarely; revalidate rather than hitting the DB per request.
-export const revalidate = 300;
+/* Must be dynamic. The page reads searchParams (the area filter) and the
+   request-scoped Supabase client, both per-request. Without this, a build
+   with an empty catalogue bails out via notFound() before reaching either,
+   so Next prerenders a static 404 — and the first render after a product is
+   published would then try to go dynamic at runtime and throw. */
+export const dynamic = "force-dynamic";
 
 export default async function ProductsPage({
   searchParams,
