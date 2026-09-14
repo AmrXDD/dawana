@@ -1,13 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Panel } from "@/components/admin/Shell";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
-import { createClient } from "@/lib/supabase/client";
-import { revalidatePublicSite } from "@/lib/revalidate-site";
+import {
+  deleteCollection,
+  listCollections,
+  patchCollection,
+  reorderCollections,
+  saveCollection,
+} from "@/lib/actions/catalog";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 import { cn, slugify } from "@/lib/utils";
 import type { Collection } from "@/lib/types";
@@ -36,16 +41,11 @@ export default function CollectionsManager({
   const [draft, setDraft] = useState<Draft>(BLANK);
   const [saving, setSaving] = useState(false);
 
-  const supabase = useMemo(() => (configured ? createClient() : null), [configured]);
-
   const refresh = useCallback(async () => {
-    if (!supabase) return;
-    const { data } = await supabase
-      .from("collections")
-      .select("*")
-      .order("position", { ascending: true });
-    if (data) setRows(data as Collection[]);
-  }, [supabase]);
+    if (!configured) return;
+    const result = await listCollections();
+    if (result.ok) setRows(result.data);
+  }, [configured]);
 
   function startCreate() {
     setEditing(null);
@@ -68,8 +68,8 @@ export default function CollectionsManager({
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!supabase) {
-      toast.error("Connect Supabase to save collections.");
+    if (!configured) {
+      toast.error("Connect the database to save collections.");
       return;
     }
 
@@ -84,13 +84,9 @@ export default function CollectionsManager({
 
     setSaving(true);
     try {
-      const { error } = editing
-        ? await supabase.from("collections").update(payload).eq("id", editing.id)
-        : await supabase.from("collections").insert(payload);
-
-      if (error) throw new Error(error.message);
+      const result = await saveCollection(payload, editing?.id);
+      if (!result.ok) throw new Error(result.error);
       toast.success(editing ? "Collection updated." : "Collection created.");
-      revalidatePublicSite();
       setOpen(false);
       await refresh();
     } catch (err) {
@@ -101,18 +97,13 @@ export default function CollectionsManager({
   }
 
   async function togglePublish(c: Collection) {
-    if (!supabase) return;
+    if (!configured) return;
     const next = !c.is_published;
     setRows((prev) => prev.map((r) => (r.id === c.id ? { ...r, is_published: next } : r)));
-    const { error } = await supabase
-      .from("collections")
-      .update({ is_published: next })
-      .eq("id", c.id);
-    if (error) {
+    const result = await patchCollection(c.id, { is_published: next });
+    if (!result.ok) {
       setRows((prev) => prev.map((r) => (r.id === c.id ? c : r)));
-      toast.error(error.message);
-    } else {
-      revalidatePublicSite();
+      toast.error(result.error);
     }
   }
 
@@ -127,27 +118,23 @@ export default function CollectionsManager({
     const repositioned = next.map((r, i) => ({ ...r, position: i }));
     setRows(repositioned);
 
-    if (!supabase) return;
-    const { error } = await supabase
-      .from("collections")
-      .upsert(repositioned.map(({ id, position }) => ({ id, position })));
-    if (error) toast.error(error.message);
-    else revalidatePublicSite(); // order shows on the public collections list
+    if (!configured) return;
+    const result = await reorderCollections(repositioned.map((r) => r.id));
+    if (!result.ok) toast.error(result.error);
   }
 
   async function remove(c: Collection) {
-    if (!supabase) return;
+    if (!configured) return;
     if (!confirm(`Delete "${c.name}"? Products in it will be unassigned.`)) return;
 
     const snapshot = rows;
     setRows((prev) => prev.filter((r) => r.id !== c.id));
-    const { error } = await supabase.from("collections").delete().eq("id", c.id);
-    if (error) {
+    const result = await deleteCollection(c.id);
+    if (!result.ok) {
       setRows(snapshot);
-      toast.error(error.message);
+      toast.error(result.error);
     } else {
       toast.success("Collection deleted.");
-      revalidatePublicSite();
     }
   }
 
@@ -165,7 +152,7 @@ export default function CollectionsManager({
           <p className="py-14 text-center text-[0.9rem] text-mint-200/45">
             {configured
               ? "No collections yet. Create one to group the portfolio."
-              : "Connect Supabase to manage collections."}
+              : "Connect the database to manage collections."}
           </p>
         </Panel>
       ) : (

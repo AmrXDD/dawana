@@ -48,14 +48,6 @@ export default function Footer({ presence }: { presence: CatalogPresence }) {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link
-                  href="/admin"
-                  className="text-[0.95rem] text-mint-100/45 transition-colors duration-300 hover:text-mint"
-                >
-                  Admin
-                </Link>
-              </li>
             </ul>
           </nav>
 

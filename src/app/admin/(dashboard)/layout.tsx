@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Shell from "@/components/admin/Shell";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin";
 
 export const metadata: Metadata = {
   title: "Control room",
@@ -10,15 +10,7 @@ export const metadata: Metadata = {
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  let email: string | null = null;
+  const admin = await requireAdmin();
 
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    email = user?.email ?? null;
-  }
-
-  return <Shell email={email}>{children}</Shell>;
+  return <Shell admin={admin}>{children}</Shell>;
 }

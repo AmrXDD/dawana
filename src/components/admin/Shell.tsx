@@ -14,29 +14,40 @@ import {
   Menu,
   X,
   LogOut,
+  UsersRound,
 } from "lucide-react";
 import { Wordmark } from "@/components/ui/Logo";
+import { can, ROLES, type Permission, type Role } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+const NAV: {
+  href: string;
+  label: string;
+  Icon: typeof LayoutGrid;
+  exact?: boolean;
+  needs?: Permission;
+}[] = [
   { href: "/admin", label: "Overview", Icon: LayoutGrid, exact: true },
-  { href: "/admin/products", label: "Products", Icon: Package },
-  { href: "/admin/collections", label: "Collections", Icon: Layers },
-  { href: "/admin/receipts", label: "Receipts", Icon: FileText },
-  { href: "/admin/contracts", label: "Contracts", Icon: FileSignature },
-  { href: "/admin/proposals", label: "Proposals", Icon: FileText },
-  { href: "/admin/health", label: "Site health", Icon: Activity },
+  { href: "/admin/products", label: "Products", Icon: Package, needs: "catalog" },
+  { href: "/admin/collections", label: "Collections", Icon: Layers, needs: "catalog" },
+  { href: "/admin/receipts", label: "Receipts", Icon: FileText, needs: "documents" },
+  { href: "/admin/contracts", label: "Contracts", Icon: FileSignature, needs: "documents" },
+  { href: "/admin/proposals", label: "Proposals", Icon: FileText, needs: "documents" },
+  { href: "/admin/team", label: "Team access", Icon: UsersRound, needs: "team" },
+  { href: "/admin/health", label: "Site health", Icon: Activity, needs: "health" },
 ];
 
 export default function Shell({
   children,
-  email,
+  admin,
 }: {
   children: ReactNode;
-  email?: string | null;
+  admin: { username: string; fullName: string | null; role: Role };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const nav = NAV.filter((item) => !item.needs || can(admin.role, item.needs));
+  const display = admin.fullName || admin.username;
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -54,7 +65,7 @@ export default function Shell({
 
       <nav aria-label="Admin" className="flex-1 px-3">
         <ul className="space-y-0.5">
-          {NAV.map(({ href, label, Icon, exact }) => {
+          {nav.map(({ href, label, Icon, exact }) => {
             const active = isActive(href, exact);
             return (
               <li key={href}>
@@ -94,30 +105,29 @@ export default function Shell({
           View site
         </Link>
 
-        {email && (
-          <div className="mt-2 flex items-center gap-3 rounded-tight px-3 py-2.5">
-            <span
-              aria-hidden="true"
-              className="grid size-8 shrink-0 place-items-center rounded-full bg-mint/15 text-[0.7rem] font-semibold text-mint"
+        <div className="mt-2 flex items-center gap-3 rounded-tight px-3 py-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-mint/15 text-[0.7rem] font-semibold text-mint"
+          >
+            {display.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[0.8rem] text-mint-50">{display}</span>
+            <span className="block truncate font-mono text-[0.64rem] uppercase tracking-[0.14em] text-mint-300/45">
+              {ROLES[admin.role].label}
+            </span>
+          </span>
+          <form action="/api/auth/signout" method="post">
+            <button
+              type="submit"
+              aria-label="Sign out"
+              className="grid size-8 place-items-center rounded-tight text-mint-300/50 transition-colors hover:bg-white/6 hover:text-mint"
             >
-              {email.slice(0, 2).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[0.76rem] text-mint-100/80">
-                {email}
-              </span>
-            </span>
-            <form action="/api/auth/signout" method="post">
-              <button
-                type="submit"
-                aria-label="Sign out"
-                className="grid size-8 place-items-center rounded-tight text-mint-300/50 transition-colors hover:bg-white/6 hover:text-mint"
-              >
-                <LogOut className="size-4" strokeWidth={1.7} />
-              </button>
-            </form>
-          </div>
-        )}
+              <LogOut className="size-4" strokeWidth={1.7} />
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

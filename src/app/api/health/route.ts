@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { isResendConfigured } from "@/lib/resend";
+import { createAdminClient, createPublicClient, isAdminDataConfigured, isSupabaseConfigured } from "@/lib/supabase/server";
+import { getCurrentAdmin } from "@/lib/auth/admin";
+import { can } from "@/lib/auth/roles";
+import { sessionSecret } from "@/lib/auth/session";
 import type { HealthCheck, HealthReport } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -25,24 +27,29 @@ async function timed<T>(fn: () => Promise<T>) {
  *
  * Each dependency is probed with a real query rather than an env-var check,
  * because "the key is present" and "the service answers" are different
- * failures and only the second one takes the site down.
+ * failures and only the second one takes the site down. Admin-only: the
+ * report names the runtime, region and commit.
  */
 export async function GET() {
+  const admin = await getCurrentAdmin();
+  if (!admin || !can(admin.role, "health")) {
+    return NextResponse.json({ error: "Not allowed." }, { status: 401 });
+  }
+
   const checks: HealthCheck[] = [];
 
-  // --- Database ---
+  // --- Public catalogue (anon key + RLS) ---
   if (!isSupabaseConfigured()) {
     checks.push({
       id: "database",
-      label: "Supabase database",
+      label: "Public catalogue",
       status: "unconfigured",
       latency_ms: null,
-      detail: "NEXT_PUBLIC_SUPABASE_URL / ANON_KEY are not set.",
+      detail: "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set.",
     });
   } else {
     const probe = await timed(async () => {
-      const supabase = await createClient();
-      const { error } = await supabase
+      const { error } = await createPublicClient()
         .from("products")
         .select("id", { count: "exact", head: true });
       if (error) throw new Error(error.message);
@@ -51,76 +58,69 @@ export async function GET() {
 
     checks.push({
       id: "database",
-      label: "Supabase database",
+      label: "Public catalogue",
       status: probe.error ? "down" : probe.ms > 1200 ? "degraded" : "ok",
       latency_ms: probe.ms,
-      detail: probe.error ?? `Responded in ${probe.ms}ms.`,
+      detail: probe.error ?? `Supabase answered the public key in ${probe.ms}ms.`,
     });
   }
 
-  // --- Auth ---
-  if (!isSupabaseConfigured()) {
+  // --- Control-room data (service role) ---
+  if (!isAdminDataConfigured()) {
     checks.push({
-      id: "auth",
-      label: "Authentication",
+      id: "admin-data",
+      label: "Control-room database",
       status: "unconfigured",
       latency_ms: null,
-      detail: "Supabase Auth is unavailable without project credentials.",
+      detail: "SUPABASE_SERVICE_ROLE_KEY is not set, so the admin can't save anything.",
     });
   } else {
     const probe = await timed(async () => {
-      const supabase = await createClient();
-      const { error } = await supabase.auth.getUser();
-      // A missing session is a valid answer; only transport errors count.
-      if (error && error.status && error.status >= 500) throw new Error(error.message);
-      return true;
-    });
-
-    checks.push({
-      id: "auth",
-      label: "Authentication",
-      status: probe.error ? "down" : "ok",
-      latency_ms: probe.ms,
-      detail: probe.error ?? `Session endpoint healthy (${probe.ms}ms).`,
-    });
-  }
-
-  // --- Storage ---
-  if (!isSupabaseConfigured()) {
-    checks.push({
-      id: "storage",
-      label: "Media storage",
-      status: "unconfigured",
-      latency_ms: null,
-      detail: "Storage buckets require Supabase credentials.",
-    });
-  } else {
-    const probe = await timed(async () => {
-      const supabase = await createClient();
-      const { error } = await supabase.storage.from("product-images").list("", { limit: 1 });
+      const { error } = await createAdminClient()
+        .from("receipts")
+        .select("id", { count: "exact", head: true });
       if (error) throw new Error(error.message);
       return true;
     });
 
     checks.push({
-      id: "storage",
-      label: "Media storage",
-      status: probe.error ? "degraded" : "ok",
+      id: "admin-data",
+      label: "Control-room database",
+      status: probe.error ? "down" : probe.ms > 1200 ? "degraded" : "ok",
       latency_ms: probe.ms,
-      detail: probe.error ?? `Bucket reachable (${probe.ms}ms).`,
+      detail: probe.error ?? `Service key accepted in ${probe.ms}ms.`,
     });
   }
 
-  // --- Transactional email ---
-  checks.push({
-    id: "email",
-    label: "Transactional email",
-    status: isResendConfigured() ? "ok" : "unconfigured",
-    latency_ms: null,
-    detail: isResendConfigured()
-      ? `Resend configured. Sending as ${process.env.RESEND_FROM_EMAIL}.`
-      : "RESEND_API_KEY / RESEND_FROM_EMAIL are not set. Contact form falls back to database only.",
-  });
+  // --- Sign-in ---
+  if (!sessionSecret() || !isAdminDataConfigured()) {
+    checks.push({
+      id: "auth",
+      label: "Admin sign-in",
+      status: "unconfigured",
+      latency_ms: null,
+      detail: "ADMIN_SESSION_SECRET must be set (32+ characters) alongside the service key.",
+    });
+  } else {
+    const probe = await timed(async () => {
+      const { count, error } = await createAdminClient()
+        .from("admin_accounts")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    });
+
+    checks.push({
+      id: "auth",
+      label: "Admin sign-in",
+      status: probe.error ? "down" : "ok",
+      latency_ms: probe.ms,
+      detail:
+        probe.error ??
+        `${probe.value} active account${probe.value === 1 ? "" : "s"} can sign in.`,
+    });
+  }
 
   // --- Runtime ---
   checks.push({

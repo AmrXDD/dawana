@@ -1,53 +1,54 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import "server-only";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-type CookieBundle = { name: string; value: string; options: CookieOptions }[];
-import { cookies } from "next/headers";
+/**
+ * Two server-side clients, no browser client.
+ *
+ * - `createPublicClient` uses the anon/publishable key. RLS limits it to
+ *   published catalogue rows, which is all the public site ever reads.
+ * - `createAdminClient` uses the service-role/secret key and bypasses RLS.
+ *   Only server actions and routes that have already checked the admin
+ *   session may use it.
+ *
+ * Neither touches cookies, so public pages stay statically renderable.
+ */
 
-/** Request-scoped Supabase client that respects RLS via the user's session. */
-export async function createClient() {
-  const cookieStore = await cookies();
+const noSession = { auth: { persistSession: false, autoRefreshToken: false } } as const;
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: CookieBundle) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // Called from a Server Component — middleware refreshes the session instead.
-          }
-        },
-      },
-    },
-  );
+let publicClient: SupabaseClient | null = null;
+let adminClient: SupabaseClient | null = null;
+
+export function createPublicClient() {
+  if (!publicClient) {
+    publicClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      noSession,
+    );
+  }
+  return publicClient;
 }
 
 /** Service-role client. Server-only: never import this into a client component. */
 export function createAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  if (!adminClient) {
+    adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, noSession);
+  }
+  return adminClient;
+}
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    key,
-    {
-      cookies: { getAll: () => [], setAll: () => {} },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
+/** Public reads are possible (URL + anon key present). */
+export function isSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
 }
 
-/** True when Supabase env vars are present — lets the UI degrade gracefully. */
-export function isSupabaseConfigured() {
+/** Admin reads and writes are possible (URL + service-role key present). */
+export function isAdminDataConfigured() {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }

@@ -1,47 +1,48 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
-import { createClient } from "@/lib/supabase/client";
+import { Field, Input, TextField } from "@/components/ui/Field";
+import { signIn } from "@/lib/actions/auth";
+
+/** Only ever return somewhere inside the control room. */
+function safeNext(value: string | null) {
+  return value && value.startsWith("/admin") && !value.startsWith("//") ? value : "/admin";
+}
 
 export default function LoginForm({ configured }: { configured: boolean }) {
-  const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/admin";
+  const next = safeNext(params.get("next"));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reveal, setReveal] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    const data = Object.fromEntries(
-      new FormData(e.currentTarget),
-    ) as Record<string, string>;
-
+    const data = new FormData(e.currentTarget);
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      const result = await signIn({
+        username: String(data.get("username") ?? ""),
+        password: String(data.get("password") ?? ""),
       });
 
-      if (authError) {
-        // Don't leak whether the address exists.
-        setError("Those credentials didn't work. Please try again.");
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
         return;
       }
 
-      router.push(next);
-      router.refresh();
+      // A full navigation, so the new session cookie is sent with every
+      // request from here on and no stale signed-out render is reused.
+      window.location.assign(next);
     } catch {
-      setError("Could not reach the authentication service.");
-    } finally {
+      setError("Couldn't reach the server. Check your connection and try again.");
       setLoading(false);
     }
   }
@@ -55,14 +56,13 @@ export default function LoginForm({ configured }: { configured: boolean }) {
           aria-hidden="true"
         />
         <h2 className="mt-4 font-display text-[1.05rem] font-semibold text-mint-50">
-          Supabase not configured
+          Sign-in isn&apos;t set up yet
         </h2>
         <p className="mt-2 text-[0.85rem] leading-relaxed text-mint-200/60">
-          Set <code className="font-mono text-mint">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
-          and{" "}
-          <code className="font-mono text-mint">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>,
-          then run the migration in{" "}
-          <code className="font-mono text-mint">supabase/migrations</code>.
+          Add <code className="font-mono text-mint">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
+          <code className="font-mono text-mint">SUPABASE_SERVICE_ROLE_KEY</code> and{" "}
+          <code className="font-mono text-mint">ADMIN_SESSION_SECRET</code>, run the
+          database SQL, then redeploy.
         </p>
       </div>
     );
@@ -71,22 +71,41 @@ export default function LoginForm({ configured }: { configured: boolean }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <TextField
-        label="Email"
-        name="email"
-        type="email"
-        autoComplete="email"
+        label="Username"
+        name="username"
+        autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         required
-        placeholder="you@dawa-na.com"
+        autoFocus
+        placeholder="Your username"
       />
 
-      <TextField
-        label="Password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-        placeholder="••••••••"
-      />
+      <Field label="Password" required>
+        {(id, describedBy) => (
+          <div className="relative">
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              name="password"
+              type={reveal ? "text" : "password"}
+              autoComplete="current-password"
+              required
+              placeholder="••••••••"
+              className="pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setReveal((v) => !v)}
+              aria-label={reveal ? "Hide password" : "Show password"}
+              className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-tight text-mint-300/50 transition-colors hover:bg-white/6 hover:text-mint"
+            >
+              {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+        )}
+      </Field>
 
       {error && (
         <p

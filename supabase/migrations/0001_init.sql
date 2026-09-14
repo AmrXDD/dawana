@@ -1,17 +1,23 @@
 -- =============================================================
--- Dawana — initial schema
--- Run with:  supabase db push      (or paste into the SQL editor)
+-- DAWANA — full database setup
+-- Paste this whole file into Supabase → SQL Editor → New query → Run.
+-- Safe to run again: every statement is idempotent.
 -- =============================================================
 
-create extension if not exists "pgcrypto";
+-- -------------------------------------------------------------
+-- 0. Leftovers from the earlier email-based admin (no-ops on a fresh project)
+-- -------------------------------------------------------------
+drop function if exists public.is_admin() cascade;
+drop function if exists public.can_write() cascade;
+drop table if exists public.admin_users cascade;
 
 -- -------------------------------------------------------------
--- Helpers
+-- 1. Helpers
 -- -------------------------------------------------------------
-
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
@@ -19,45 +25,40 @@ begin
 end;
 $$;
 
--- Admin allow-list. Membership here (not merely being logged in) is what
--- grants write access, so an accidental public signup can never mutate data.
-create table if not exists public.admin_users (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  email       text not null,
-  full_name   text,
-  role        text not null default 'editor' check (role in ('owner','admin','editor','viewer')),
-  created_at  timestamptz not null default now()
+-- -------------------------------------------------------------
+-- 2. Control-room accounts (username + password, no email)
+--    Passwords are scrypt hashes made by the app — never plain text.
+--    Only the server (service-role key) can read or write this table.
+-- -------------------------------------------------------------
+create table if not exists public.admin_accounts (
+  id               uuid primary key default gen_random_uuid(),
+  username         text not null check (username ~ '^[A-Za-z0-9._-]{3,32}$'),
+  username_key     text generated always as (lower(username)) stored,
+  full_name        text,
+  role             text not null default 'editor'
+                   check (role in ('developer','admin','editor')),
+  password_hash    text not null,
+  is_active        boolean not null default true,
+  session_version  int not null default 1,
+  failed_attempts  int not null default 0,
+  locked_until     timestamptz,
+  last_login_at    timestamptz,
+  created_by       uuid references public.admin_accounts(id) on delete set null,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
 );
 
-create or replace function public.is_admin()
-returns boolean
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select exists (
-    select 1 from public.admin_users a where a.id = auth.uid()
-  );
-$$;
+create unique index if not exists admin_accounts_username_key
+  on public.admin_accounts (username_key);
 
-create or replace function public.can_write()
-returns boolean
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select exists (
-    select 1 from public.admin_users a
-    where a.id = auth.uid() and a.role in ('owner','admin','editor')
-  );
-$$;
+-- No accounts are seeded in this public file. The first logins were created
+-- privately at setup; everyone after that is added from Team access in the
+-- admin. To create a first account by hand, hash a password with the app's
+-- scrypt format (see src/lib/auth/password.ts) and insert a 'developer' row.
 
 -- -------------------------------------------------------------
--- Collections
+-- 3. Catalogue
 -- -------------------------------------------------------------
-
 create table if not exists public.collections (
   id                uuid primary key default gen_random_uuid(),
   slug              text not null unique,
@@ -74,10 +75,6 @@ create table if not exists public.collections (
 
 create index if not exists collections_published_idx
   on public.collections (is_published, position);
-
--- -------------------------------------------------------------
--- Products
--- -------------------------------------------------------------
 
 create table if not exists public.products (
   id                 uuid primary key default gen_random_uuid(),
@@ -106,18 +103,28 @@ create table if not exists public.products (
 create index if not exists products_collection_idx on public.products (collection_id);
 create index if not exists products_published_idx  on public.products (is_published);
 create index if not exists products_area_idx       on public.products (therapeutic_area);
-
--- Full-text search across the fields a rep would actually search by.
 create index if not exists products_search_idx on public.products
   using gin (to_tsvector('english',
     coalesce(name,'') || ' ' || coalesce(generic_name,'') || ' ' ||
     coalesce(sku,'')  || ' ' || coalesce(manufacturer,'')));
 
--- -------------------------------------------------------------
--- Documents: receipts / contracts / proposals
--- Sequences are per-type and per-year so refs read DW-RCP-2026-0001.
--- -------------------------------------------------------------
+create table if not exists public.partners (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  country      text,
+  website      text,
+  logo_url     text,
+  blurb        text,
+  position     int not null default 0,
+  is_published boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
 
+-- -------------------------------------------------------------
+-- 4. Documents: receipts / contracts / proposals
+--    References read DW-RCP-2026-0001, numbered per type per year.
+-- -------------------------------------------------------------
 create table if not exists public.doc_counters (
   kind  text not null,
   year  int  not null,
@@ -139,7 +146,6 @@ begin
   on conflict (kind, year)
     do update set seq = public.doc_counters.seq + 1
   returning seq into v_seq;
-
   return v_seq;
 end;
 $$;
@@ -159,7 +165,7 @@ create table if not exists public.receipts (
   authorized_by   text,
   status          text not null default 'draft'
                   check (status in ('draft','sent','paid','void')),
-  created_by      uuid references auth.users(id) on delete set null,
+  created_by      uuid,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -180,7 +186,7 @@ create table if not exists public.contracts (
   signatory_title  text,
   status           text not null default 'draft'
                    check (status in ('draft','sent','signed','void','expired')),
-  created_by       uuid references auth.users(id) on delete set null,
+  created_by       uuid,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
@@ -200,7 +206,7 @@ create table if not exists public.proposals (
   tax_rate       numeric(5,2) not null default 0,
   status         text not null default 'draft'
                  check (status in ('draft','sent','signed','void','expired')),
-  created_by     uuid references auth.users(id) on delete set null,
+  created_by     uuid,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -209,10 +215,21 @@ create index if not exists receipts_created_idx  on public.receipts (created_at 
 create index if not exists contracts_created_idx on public.contracts (created_at desc);
 create index if not exists proposals_created_idx on public.proposals (created_at desc);
 
--- -------------------------------------------------------------
--- Contact messages (public insert, admin read)
--- -------------------------------------------------------------
+-- "Created by" points at the control-room account that saved the document.
+do $$
+declare t text;
+begin
+  foreach t in array array['receipts','contracts','proposals'] loop
+    execute format('alter table public.%I drop constraint if exists %I', t, t || '_created_by_fkey');
+    execute format(
+      'alter table public.%I add constraint %I foreign key (created_by)
+       references public.admin_accounts(id) on delete set null', t, t || '_created_by_fkey');
+  end loop;
+end $$;
 
+-- -------------------------------------------------------------
+-- 5. Website enquiries (written by the server, read in the admin)
+-- -------------------------------------------------------------
 create table if not exists public.contact_messages (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
@@ -229,31 +246,13 @@ create index if not exists contact_unhandled_idx
   on public.contact_messages (handled, created_at desc);
 
 -- -------------------------------------------------------------
--- Partners (drives the Partners page — no invented names in code)
+-- 6. updated_at triggers
 -- -------------------------------------------------------------
-
-create table if not exists public.partners (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  country      text,
-  website      text,
-  logo_url     text,
-  blurb        text,
-  position     int not null default 0,
-  is_published boolean not null default true,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
-);
-
--- -------------------------------------------------------------
--- updated_at triggers
--- -------------------------------------------------------------
-
 do $$
 declare t text;
 begin
   foreach t in array array[
-    'collections','products','receipts','contracts','proposals','partners'
+    'admin_accounts','collections','products','receipts','contracts','proposals','partners'
   ]
   loop
     execute format(
@@ -264,106 +263,65 @@ begin
 end $$;
 
 -- =============================================================
--- ROW LEVEL SECURITY
+-- 7. ROW LEVEL SECURITY
+--    The public (anon key) can only READ published catalogue rows.
+--    Every write goes through the Next.js server with the service-role
+--    key after it has checked the admin session, and the service role
+--    bypasses RLS — so no write policies exist for anyone else.
 -- =============================================================
-
-alter table public.admin_users      enable row level security;
+alter table public.admin_accounts   enable row level security;
 alter table public.collections      enable row level security;
 alter table public.products         enable row level security;
+alter table public.partners         enable row level security;
 alter table public.receipts         enable row level security;
 alter table public.contracts        enable row level security;
 alter table public.proposals        enable row level security;
 alter table public.contact_messages enable row level security;
-alter table public.partners         enable row level security;
 alter table public.doc_counters     enable row level security;
 
--- admin_users: you may read your own row; only owners manage the list.
-drop policy if exists admin_self_read on public.admin_users;
-create policy admin_self_read on public.admin_users
-  for select using (id = auth.uid());
-
--- Public catalogue: anonymous visitors see published rows only.
-drop policy if exists collections_public_read on public.collections;
-create policy collections_public_read on public.collections
-  for select using (is_published or public.is_admin());
-
-drop policy if exists collections_write on public.collections;
-create policy collections_write on public.collections
-  for all using (public.can_write()) with check (public.can_write());
-
-drop policy if exists products_public_read on public.products;
-create policy products_public_read on public.products
-  for select using (is_published or public.is_admin());
-
-drop policy if exists products_write on public.products;
-create policy products_write on public.products
-  for all using (public.can_write()) with check (public.can_write());
-
-drop policy if exists partners_public_read on public.partners;
-create policy partners_public_read on public.partners
-  for select using (is_published or public.is_admin());
-
-drop policy if exists partners_write on public.partners;
-create policy partners_write on public.partners
-  for all using (public.can_write()) with check (public.can_write());
-
--- Documents are admin-only in both directions — never publicly readable.
+-- Clear any policies from earlier versions of this file.
 do $$
-declare t text;
+declare r record;
 begin
-  foreach t in array array['receipts','contracts','proposals'] loop
-    execute format('drop policy if exists %I_admin_read on public.%I;', t, t);
-    execute format(
-      'create policy %I_admin_read on public.%I
-       for select using (public.is_admin());', t, t);
-
-    execute format('drop policy if exists %I_admin_write on public.%I;', t, t);
-    execute format(
-      'create policy %I_admin_write on public.%I
-       for all using (public.can_write()) with check (public.can_write());', t, t);
+  for r in
+    select policyname, tablename from pg_policies
+    where schemaname = 'public'
+      and tablename in ('admin_accounts','collections','products','partners','receipts',
+                        'contracts','proposals','contact_messages','doc_counters')
+  loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
 end $$;
 
--- Contact: anyone may submit, only admins may read.
-drop policy if exists contact_public_insert on public.contact_messages;
-create policy contact_public_insert on public.contact_messages
-  for insert with check (true);
+create policy collections_public_read on public.collections
+  for select to anon, authenticated using (is_published);
 
-drop policy if exists contact_admin_read on public.contact_messages;
-create policy contact_admin_read on public.contact_messages
-  for select using (public.is_admin());
+create policy products_public_read on public.products
+  for select to anon, authenticated using (is_published);
 
-drop policy if exists contact_admin_update on public.contact_messages;
-create policy contact_admin_update on public.contact_messages
-  for update using (public.can_write()) with check (public.can_write());
+create policy partners_public_read on public.partners
+  for select to anon, authenticated using (is_published);
 
--- Counters are touched only through next_doc_seq (security definer).
-drop policy if exists counters_admin_read on public.doc_counters;
-create policy counters_admin_read on public.doc_counters
-  for select using (public.is_admin());
+-- Belt and braces: the public roles hold no privileges at all on private tables.
+revoke all on public.admin_accounts, public.receipts, public.contracts, public.proposals,
+              public.contact_messages, public.doc_counters
+  from anon, authenticated;
 
--- =============================================================
--- STORAGE
--- =============================================================
+-- The public site reads the catalogue (RLS above narrows it to published rows).
+grant usage on schema public to anon, authenticated;
+grant select on public.collections, public.products, public.partners to anon, authenticated;
 
-insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
-on conflict (id) do nothing;
+-- And can't write the catalogue even if a policy were added by mistake.
+revoke insert, update, delete, truncate on public.collections, public.products, public.partners
+  from anon, authenticated;
 
-insert into storage.buckets (id, name, public)
-values ('documents', 'documents', false)
-on conflict (id) do nothing;
+-- Document numbering is server-only.
+revoke execute on function public.next_doc_seq(text, int) from public, anon, authenticated;
+grant  execute on function public.next_doc_seq(text, int) to service_role;
 
-drop policy if exists product_images_public_read on storage.objects;
-create policy product_images_public_read on storage.objects
-  for select using (bucket_id = 'product-images');
+grant all on public.admin_accounts, public.collections, public.products, public.partners,
+             public.receipts, public.contracts, public.proposals,
+             public.contact_messages, public.doc_counters
+  to service_role;
 
-drop policy if exists product_images_admin_write on storage.objects;
-create policy product_images_admin_write on storage.objects
-  for all using (bucket_id = 'product-images' and public.can_write())
-  with check (bucket_id = 'product-images' and public.can_write());
-
-drop policy if exists documents_admin_all on storage.objects;
-create policy documents_admin_all on storage.objects
-  for all using (bucket_id = 'documents' and public.is_admin())
-  with check (bucket_id = 'documents' and public.can_write());
+-- Done. Check with:  select username, role, is_active from public.admin_accounts;

@@ -24,50 +24,74 @@ const CardNav = ({
   const navRef = useRef(null);
   const cardsRef = useRef([]);
   const tlRef = useRef(null);
+  /* The state the visitor last asked for. Decisions read this rather than
+     React state: `isExpanded` stays true until the close animation finishes,
+     so a click during that window used to "close" an already-closing menu and
+     the menu appeared not to open. */
+  const wantOpenRef = useRef(false);
+  const lastWidthRef = useRef(0);
 
   const calculateHeight = () => {
     const navEl = navRef.current;
     if (!navEl) return 260;
 
+    const contentEl = navEl.querySelector('.card-nav-content');
+    if (!contentEl) return 260;
+
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    const topBar = navEl.querySelector('.card-nav-top')?.offsetHeight || 60;
+
     if (isMobile) {
-      const contentEl = navEl.querySelector('.card-nav-content');
-      if (contentEl) {
-        const wasVisible = contentEl.style.visibility;
-        const wasPointerEvents = contentEl.style.pointerEvents;
-        const wasPosition = contentEl.style.position;
-        const wasHeight = contentEl.style.height;
+      const wasVisible = contentEl.style.visibility;
+      const wasPointerEvents = contentEl.style.pointerEvents;
+      const wasPosition = contentEl.style.position;
+      const wasHeight = contentEl.style.height;
 
-        contentEl.style.visibility = 'visible';
-        contentEl.style.pointerEvents = 'auto';
-        contentEl.style.position = 'static';
-        contentEl.style.height = 'auto';
+      contentEl.style.visibility = 'visible';
+      contentEl.style.pointerEvents = 'auto';
+      contentEl.style.position = 'static';
+      contentEl.style.height = 'auto';
 
-        contentEl.offsetHeight;
+      contentEl.offsetHeight;
 
-        const topBar = 60;
-        const padding = 16;
-        const contentHeight = contentEl.scrollHeight;
+      const padding = 16;
+      const contentHeight = contentEl.scrollHeight;
 
-        contentEl.style.visibility = wasVisible;
-        contentEl.style.pointerEvents = wasPointerEvents;
-        contentEl.style.position = wasPosition;
-        contentEl.style.height = wasHeight;
+      contentEl.style.visibility = wasVisible;
+      contentEl.style.pointerEvents = wasPointerEvents;
+      contentEl.style.position = wasPosition;
+      contentEl.style.height = wasHeight;
 
-        return topBar + contentHeight + padding;
-      }
+      return topBar + contentHeight + padding;
     }
-    return 260;
+
+    /* Desktop: tall enough for the fullest card, never shorter than the
+       original 260px. Cards stretch to fill, so measure their natural height. */
+    let tallest = 0;
+    cardsRef.current.forEach(card => {
+      if (!card) return;
+      const was = card.style.height;
+      card.style.height = 'auto';
+      tallest = Math.max(tallest, card.scrollHeight);
+      card.style.height = was;
+    });
+    // + content padding (16) + the nav's own 1px borders.
+    return Math.max(260, topBar + tallest + 18);
   };
 
   const createTimeline = () => {
     const navEl = navRef.current;
     if (!navEl) return null;
 
-    gsap.set(navEl, { height: 60, overflow: 'hidden' });
+    gsap.set(navEl, { height: navEl.querySelector('.card-nav-top')?.offsetHeight || 60, overflow: 'hidden' });
     gsap.set(cardsRef.current, { y: 50, opacity: 0 });
 
-    const tl = gsap.timeline({ paused: true });
+    const tl = gsap.timeline({
+      paused: true,
+      onReverseComplete: () => {
+        if (!wantOpenRef.current) setIsExpanded(false);
+      }
+    });
 
     tl.to(navEl, {
       height: calculateHeight,
@@ -80,58 +104,70 @@ const CardNav = ({
     return tl;
   };
 
-  useLayoutEffect(() => {
+  /** Rebuilds the timeline (new items, new width) and parks it at the current state. */
+  const rebuild = () => {
+    tlRef.current?.kill();
     const tl = createTimeline();
+    if (!tl) return;
+    if (wantOpenRef.current) tl.progress(1);
     tlRef.current = tl;
+  };
 
+  useLayoutEffect(() => {
+    rebuild();
     return () => {
-      tl?.kill();
+      tlRef.current?.kill();
       tlRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ease, items]);
 
   useLayoutEffect(() => {
+    lastWidthRef.current = window.innerWidth;
     const handleResize = () => {
-      if (!tlRef.current) return;
-
-      if (isExpanded) {
-        const newHeight = calculateHeight();
-        gsap.set(navRef.current, { height: newHeight });
-
-        tlRef.current.kill();
-        const newTl = createTimeline();
-        if (newTl) {
-          newTl.progress(1);
-          tlRef.current = newTl;
-        }
-      } else {
-        tlRef.current.kill();
-        const newTl = createTimeline();
-        if (newTl) {
-          tlRef.current = newTl;
-        }
-      }
+      // Mobile browsers fire resize when the address bar slides on scroll.
+      // Only a width change can change the layout, so ignore the rest.
+      if (window.innerWidth === lastWidthRef.current) return;
+      lastWidthRef.current = window.innerWidth;
+      rebuild();
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpanded]);
+  }, []);
 
-  const toggleMenu = () => {
+  const setOpen = open => {
     const tl = tlRef.current;
-    if (!tl) return;
-    if (!isExpanded) {
-      setIsHamburgerOpen(true);
+    if (!tl || wantOpenRef.current === open) return;
+    wantOpenRef.current = open;
+    setIsHamburgerOpen(open);
+    if (open) {
       setIsExpanded(true);
-      tl.play(0);
+      tl.play();
     } else {
-      setIsHamburgerOpen(false);
-      tl.eventCallback('onReverseComplete', () => setIsExpanded(false));
       tl.reverse();
     }
   };
+
+  const toggleMenu = () => setOpen(!wantOpenRef.current);
+
+  // Lets the page transition close the menu while the screen is covered.
+  useLayoutEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener('cardnav:close', close);
+    return () => window.removeEventListener('cardnav:close', close);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Escape closes an open menu.
+  useLayoutEffect(() => {
+    if (!isExpanded) return;
+    const onKey = e => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
 
   const setCardRef = i => el => {
     if (el) cardsRef.current[i] = el;
@@ -179,12 +215,41 @@ const CardNav = ({
               key={`${item.label}-${idx}`}
               className="nav-card"
               ref={setCardRef(idx)}
-              style={{ backgroundColor: item.bgColor, color: item.textColor }}
+              style={{ backgroundColor: item.bgColor, color: item.textColor, ...(item.grow ? { flexGrow: item.grow } : {}) }}
             >
-              <div className="nav-card-label">{item.label}</div>
+              <div className="nav-card-head">
+                <div className="nav-card-label">{item.label}</div>
+                {item.meta && <div className="nav-card-meta">{item.meta}</div>}
+              </div>
+              {item.grid?.length > 0 && (
+                <div className="nav-card-grid">
+                  {item.grid.map(g => (
+                    <a
+                      key={g.href}
+                      className="nav-card-chip"
+                      href={g.href}
+                      onClick={e => {
+                        if (!e.defaultPrevented) setOpen(false);
+                      }}
+                    >
+                      {g.index && <span className="nav-card-chip-index">{g.index}</span>}
+                      {g.label}
+                    </a>
+                  ))}
+                </div>
+              )}
               <div className="nav-card-links">
                 {item.links?.map((lnk, i) => (
-                  <a key={`${lnk.label}-${i}`} className="nav-card-link" href={lnk.href} aria-label={lnk.ariaLabel}>
+                  <a
+                    key={`${lnk.label}-${i}`}
+                    className="nav-card-link"
+                    href={lnk.href}
+                    aria-label={lnk.ariaLabel}
+                    onClick={e => {
+                      // A covered page transition closes it out of sight instead.
+                      if (!e.defaultPrevented) setOpen(false);
+                    }}
+                  >
                     <GoArrowUpRight className="nav-card-link-icon" aria-hidden="true" />
                     {lnk.label}
                   </a>

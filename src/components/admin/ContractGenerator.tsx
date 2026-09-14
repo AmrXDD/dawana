@@ -8,7 +8,7 @@ import ContractDoc from "@/components/doc/ContractDoc";
 import { Panel } from "@/components/admin/Shell";
 import Button from "@/components/ui/Button";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
-import { createClient } from "@/lib/supabase/client";
+import { saveDocument } from "@/lib/actions/documents";
 import { DEFAULT_CLAUSES, emptyClause } from "@/lib/docs";
 import { SIGNATORY } from "@/lib/brand";
 import { docRef } from "@/lib/utils";
@@ -78,20 +78,7 @@ export default function ContractGenerator({ configured }: { configured: boolean 
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const year = new Date().getFullYear();
-
-      const { data: nextSeq, error: seqError } = await supabase.rpc("next_doc_seq", {
-        p_kind: "contracts",
-        p_year: year,
-      });
-      if (seqError) throw new Error(seqError.message);
-
-      const finalRef = docRef("CTR", nextSeq as number, year);
-
-      const { error } = await supabase.from("contracts").insert({
-        ref: finalRef,
-        seq: nextSeq,
+      const result = await saveDocument("contracts", {
         title,
         counterparty,
         effective_date: effective,
@@ -102,11 +89,10 @@ export default function ContractGenerator({ configured }: { configured: boolean 
         clauses,
         signatory_name: signatory,
         signatory_title: signatoryTitle,
-        status: "draft",
       });
-      if (error) throw new Error(error.message);
+      if (!result.ok) throw new Error(result.error);
 
-      toast.success(`Contract ${finalRef} saved.`);
+      toast.success(`Contract ${result.data.ref} saved.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save contract.");
     } finally {

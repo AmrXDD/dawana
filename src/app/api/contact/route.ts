@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { sendContactEmails, isResendConfigured } from "@/lib/resend";
+import { createAdminClient, isAdminDataConfigured } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -15,6 +14,11 @@ const schema = z.object({
   company_website: z.string().max(0).optional().or(z.literal("")),
 });
 
+/**
+ * Website enquiries land in the contact_messages table and show up on the
+ * control-room overview. Written with the service role on the server, so the
+ * table needs no public insert policy at all.
+ */
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -36,46 +40,30 @@ export async function POST(request: Request) {
   // Silently accept honeypot hits so bots don't learn the rule.
   if (company_website) return NextResponse.json({ ok: true });
 
-  const results = { stored: false, emailed: false };
-
-  // Persist first — an email failure must never lose the enquiry.
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createClient();
-      const { error } = await supabase.from("contact_messages").insert({
-        name: data.name,
-        email: data.email,
-        organisation: data.organisation || null,
-        subject: data.subject || null,
-        message: data.message,
-        user_agent: request.headers.get("user-agent"),
-      });
-      results.stored = !error;
-    } catch {
-      results.stored = false;
-    }
-  }
-
-  if (isResendConfigured()) {
-    try {
-      const sent = await sendContactEmails(data);
-      results.emailed = Boolean(sent.delivered);
-    } catch {
-      results.emailed = false;
-    }
-  }
-
-  // If neither sink is configured the message would vanish — say so rather
-  // than showing a success state that means nothing.
-  if (!results.stored && !results.emailed) {
+  // With nowhere to store it the message would vanish — say so rather than
+  // showing a success state that means nothing.
+  if (!isAdminDataConfigured()) {
     return NextResponse.json(
-      {
-        error:
-          "Messaging is not configured yet. Please email us directly while we finish setup.",
-      },
+      { error: "Messaging is not configured yet. Please email us directly while we finish setup." },
       { status: 503 },
     );
   }
 
-  return NextResponse.json({ ok: true, ...results });
+  const { error } = await createAdminClient().from("contact_messages").insert({
+    name: data.name,
+    email: data.email,
+    organisation: data.organisation || null,
+    subject: data.subject || null,
+    message: data.message,
+    user_agent: request.headers.get("user-agent"),
+  });
+
+  if (error) {
+    return NextResponse.json(
+      { error: "We couldn't send that just now. Please try again or email us directly." },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }

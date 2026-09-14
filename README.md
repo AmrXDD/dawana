@@ -2,7 +2,7 @@
 
 Marketing site + control room for **Dawana** — a Kuwait-based pharmaceutical
 distributor. Next.js 15 (App Router), React 19, TypeScript, Tailwind v4,
-GSAP + Lenis, Supabase, Resend.
+GSAP + Lenis, Supabase.
 
 ---
 
@@ -39,44 +39,53 @@ cp .env.example .env.local   # then fill it in
 npm run dev
 ```
 
-The site runs without Supabase or Resend — the catalogue shows honest empty
-states, the admin runs in preview mode, and the document generators still
-print. Nothing throws.
+The site runs without Supabase — the catalogue shows honest empty states and
+nothing throws. The admin needs the database to sign anyone in.
 
 ---
 
 ## Environment variables
 
-See [`.env.example`](.env.example) for the annotated list. Short version:
+See [`.env.example`](.env.example) for the annotated list.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; RLS does the protecting |
-| `SUPABASE_SERVICE_ROLE_KEY` | server only | Bypasses RLS — never expose |
-| `RESEND_API_KEY` | for email | Contact form + document delivery |
-| `RESEND_FROM_EMAIL` | for email | Must be a Resend-verified domain |
-| `CONTACT_INBOX_EMAIL` | optional | Where enquiries land |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; can only read published catalogue rows |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes, server only | Every admin read/write and the contact form |
+| `ADMIN_SESSION_SECRET` | yes | 32+ random characters; signs the admin session cookie |
 | `NEXT_PUBLIC_SITE_URL` | recommended | Canonical origin for metadata/sitemap |
 
 ---
 
 ## Database
 
-Run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
-in the Supabase SQL editor (or `supabase db push`). It creates the catalogue,
-document stores, contact inbox, storage buckets and **row-level security**.
-
-Then grant yourself admin access — being logged in is not enough, membership
-of `admin_users` is what authorises writes:
-
-```sql
-insert into public.admin_users (id, email, full_name, role)
-select id, email, 'Your Name', 'owner' from auth.users where email = 'you@dawa-na.com';
-```
+Paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
+into the Supabase SQL editor and run it. It's idempotent. It creates the
+catalogue, document stores, contact inbox, the control-room accounts table
+and **row-level security**: the public key can only
+read published catalogue rows; everything else goes through the server.
 
 Document references are minted by `next_doc_seq()` inside the database, so two
 admins issuing a receipt at the same moment can't collide on a number.
+
+---
+
+## Admin sign-in
+
+Username + password — no email. Accounts live in `admin_accounts`; passwords
+are scrypt hashes. Sessions are an HMAC-signed, httpOnly cookie, and the
+account is re-checked on every admin request, so switching someone off or
+resetting their password takes effect immediately. Five wrong passwords pause
+an account for 15 minutes.
+
+| Role | Access |
+| --- | --- |
+| Developer | Everything. Only developers can change developer accounts. |
+| Administrator | Everything, including Team access. |
+| Editor | Products, collections, document generators. |
+
+New people are added from **Team access** in the admin — no SQL needed.
 
 ---
 
@@ -90,7 +99,8 @@ admins issuing a receipt at the same moment can't collide on a number.
 | Receipts | Generator matching the printed receipt from the brand book |
 | Contracts | Distribution agreement from an editable clause set |
 | Proposals | Cover + narrative + costed investment schedule |
-| Site health | Live probes of database, auth, storage, email, runtime |
+| Team access | Add people, set roles, reset passwords, switch accounts off |
+| Site health | Live probes of the public catalogue, admin database, sign-in, runtime |
 
 Each generator is a split workbench: editor on the left, **live A4 preview**
 on the right. The preview is the real print component scaled with a CSS
@@ -105,8 +115,7 @@ dialog at true A4.
 ## Deployment (Vercel)
 
 1. Import the repo.
-2. Add the environment variables (Production + Preview). Keep
-   `SUPABASE_SERVICE_ROLE_KEY` out of Preview unless you need it.
+2. Add the environment variables (Production + Preview).
 3. Add `www.dawa-na.com` under Domains.
 4. Deploy.
 

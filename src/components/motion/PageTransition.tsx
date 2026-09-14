@@ -175,8 +175,7 @@ export default function PageTransition({ children }: { children: ReactNode }) {
       coveredAt.current = performance.now();
 
       // Close the card menu if the click came from inside it.
-      const menu = document.querySelector<HTMLElement>(".dawana-nav .card-nav.open .hamburger-menu");
-      menu?.click();
+      window.dispatchEvent(new Event("cardnav:close"));
 
       router.push(href, { scroll: false });
 

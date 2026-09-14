@@ -442,6 +442,91 @@
   letter-spacing: -0.02em;
 }
 
+.dawana-nav .card-nav-content {
+  top: 64px;
+}
+
+.dawana-nav .nav-card {
+  padding: 14px 18px 16px;
+  overflow: hidden;
+}
+
+/* A faint pulse trace across each card so the panels read as brand
+   surfaces, not flat colour blocks. */
+.dawana-nav .nav-card::after {
+  content: "";
+  position: absolute;
+  right: -6%;
+  bottom: 38%;
+  width: 70%;
+  height: 46px;
+  pointer-events: none;
+  opacity: 0.09;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' fill='none' stroke='%23dbf3ec' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 24h62l8-14 10 26 9-30 8 18h103'/%3E%3C/svg%3E")
+    no-repeat right center / contain;
+}
+
+.dawana-nav .nav-card-head {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dawana-nav .nav-card-meta {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.dawana-nav .nav-card-grid {
+  position: relative;
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.dawana-nav .nav-card-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(219, 243, 236, 0.07);
+  border: 1px solid rgba(219, 243, 236, 0.1);
+  color: inherit;
+  font-family: var(--font-inter);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    background-color 0.25s var(--ease-out-quint),
+    border-color 0.25s var(--ease-out-quint);
+}
+
+.dawana-nav .nav-card-chip:hover {
+  background: rgba(92, 188, 167, 0.2);
+  border-color: rgba(92, 188, 167, 0.45);
+}
+
+.dawana-nav .nav-card-chip-index {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--color-mint);
+}
+
+.dawana-nav .nav-card-links {
+  position: relative;
+  padding-top: 10px;
+}
+
 .dawana-nav .nav-card-link {
   font-family: var(--font-inter);
   font-size: 0.9rem;
@@ -465,6 +550,12 @@
   .dawana-nav .card-nav,
   .dawana-nav .card-nav-top {
     height: 58px;
+  }
+  .dawana-nav .card-nav-content {
+    top: 58px;
+  }
+  .dawana-nav .nav-card-grid {
+    margin-top: 8px;
   }
 }
 

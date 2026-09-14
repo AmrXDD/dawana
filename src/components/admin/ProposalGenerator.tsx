@@ -8,7 +8,7 @@ import ProposalDoc from "@/components/doc/ProposalDoc";
 import { Panel } from "@/components/admin/Shell";
 import Button from "@/components/ui/Button";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
-import { createClient } from "@/lib/supabase/client";
+import { saveDocument } from "@/lib/actions/documents";
 import {
   DEFAULT_SECTIONS,
   deliverableTotals,
@@ -78,20 +78,7 @@ export default function ProposalGenerator({ configured }: { configured: boolean 
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const year = new Date().getFullYear();
-
-      const { data: nextSeq, error: seqError } = await supabase.rpc("next_doc_seq", {
-        p_kind: "proposals",
-        p_year: year,
-      });
-      if (seqError) throw new Error(seqError.message);
-
-      const finalRef = docRef("PRP", nextSeq as number, year);
-
-      const { error } = await supabase.from("proposals").insert({
-        ref: finalRef,
-        seq: nextSeq,
+      const result = await saveDocument("proposals", {
         title,
         client,
         prepared_by: preparedBy,
@@ -101,11 +88,10 @@ export default function ProposalGenerator({ configured }: { configured: boolean 
         deliverables,
         currency,
         tax_rate: taxRate,
-        status: "draft",
       });
-      if (error) throw new Error(error.message);
+      if (!result.ok) throw new Error(result.error);
 
-      toast.success(`Proposal ${finalRef} saved.`);
+      toast.success(`Proposal ${result.data.ref} saved.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save proposal.");
     } finally {

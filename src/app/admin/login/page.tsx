@@ -3,15 +3,21 @@ import { Suspense } from "react";
 import LoginForm from "@/components/admin/LoginForm";
 import { Wordmark } from "@/components/ui/Logo";
 import { PulseTicker } from "@/components/motion/PulseLine";
-import { BRAND, CONTACT } from "@/lib/brand";
-import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { BRAND } from "@/lib/brand";
+import { getCurrentAdmin, isAdminAuthConfigured } from "@/lib/auth/admin";
 
 export const metadata: Metadata = {
   title: "Sign in",
   robots: { index: false, follow: false },
 };
 
-export default function LoginPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LoginPage() {
+  // Already signed in with a live account? Straight through.
+  if (await getCurrentAdmin()) redirect("/admin");
+
   return (
     <main className="relative grid min-h-screen bg-night text-mint-50 lg:grid-cols-2">
       {/* Form side */}
@@ -24,19 +30,19 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-2.5 text-[0.9rem] leading-relaxed text-mint-200/55">
-            Access is limited to members of the {BRAND.name} admin list.
+            Use the username and password your {BRAND.name} administrator gave you.
           </p>
 
           <div className="mt-8">
             <Suspense
               fallback={<div className="h-64 animate-pulse rounded-card bg-night-raised/50" />}
             >
-              <LoginForm configured={isSupabaseConfigured()} />
+              <LoginForm configured={isAdminAuthConfigured()} />
             </Suspense>
           </div>
 
           <p className="mt-10 text-[0.76rem] leading-relaxed text-mint-300/40">
-            Trouble signing in? Contact {CONTACT.email}.
+            Forgotten your password? An administrator can reset it from Team access.
           </p>
         </div>
       </div>

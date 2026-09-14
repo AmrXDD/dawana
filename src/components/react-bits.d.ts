@@ -50,8 +50,14 @@ declare module "@/components/CardNav" {
 
   export interface CardNavItem {
     label: string;
+    /** Small mono tag beside the label (added locally). */
+    meta?: string;
     bgColor?: string;
     textColor?: string;
+    /** Relative width against the other cards on desktop (added locally). */
+    grow?: number;
+    /** Compact two-column link grid above the main links (added locally). */
+    grid?: { label: string; href: string; index?: string }[];
     links?: CardNavLink[];
   }
 

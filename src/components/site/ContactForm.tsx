@@ -117,8 +117,8 @@ export default function ContactForm() {
           Message received
         </h2>
         <p className="mx-auto mt-3 max-w-sm text-[0.92rem] leading-relaxed text-ink-soft">
-          Thank you — we aim to respond within one business day. A copy has been
-          sent to your inbox.
+          Thank you — the team has your message and we aim to respond within one
+          business day.
         </p>
         <button
           type="button"

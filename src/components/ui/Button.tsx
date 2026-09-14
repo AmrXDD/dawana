@@ -50,7 +50,7 @@ const Inner = ({
 }: Pick<CommonProps, "children" | "arrow" | "loading">) => (
   <>
     {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-    <span>{children}</span>
+    <span className="inline-flex items-center gap-2">{children}</span>
     {arrow && !loading && (
       <ArrowUpRight
         className="size-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5"

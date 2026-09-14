@@ -1,4 +1,4 @@
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createAdminClient, isAdminDataConfigured } from "@/lib/supabase/server";
 import type { Collection, ContactMessage, Product } from "@/lib/types";
 
 /**
@@ -28,10 +28,10 @@ export async function getProducts(opts?: {
   area?: string;
   limit?: number;
 }): Promise<Listing<Product>> {
-  if (!isSupabaseConfigured()) return empty<Product>(false);
+  if (!isAdminDataConfigured()) return empty<Product>(false);
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     let query = supabase
       .from("products")
       .select("*, collection:collections(id,name,slug)", { count: "exact" })
@@ -61,10 +61,10 @@ export async function getProducts(opts?: {
 }
 
 export async function getCollections(): Promise<Listing<Collection>> {
-  if (!isSupabaseConfigured()) return empty<Collection>(false);
+  if (!isAdminDataConfigured()) return empty<Collection>(false);
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data, error, count } = await supabase
       .from("collections")
       .select("*", { count: "exact" })
@@ -83,10 +83,10 @@ export async function getCollections(): Promise<Listing<Collection>> {
 }
 
 export async function getMessages(limit = 20): Promise<Listing<ContactMessage>> {
-  if (!isSupabaseConfigured()) return empty<ContactMessage>(false);
+  if (!isAdminDataConfigured()) return empty<ContactMessage>(false);
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data, error, count } = await supabase
       .from("contact_messages")
       .select("*", { count: "exact" })
@@ -116,10 +116,10 @@ export async function getDocSummary(
   kind: DocSummary["kind"],
 ): Promise<DocSummary & { configured: boolean }> {
   const base = { kind, total: 0, draft: 0, recent: [], configured: false };
-  if (!isSupabaseConfigured()) return base;
+  if (!isAdminDataConfigured()) return base;
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const titleCol = kind === "receipts" ? "ref" : "title";
 
     const [{ count: total }, { count: draft }, { data }] = await Promise.all([

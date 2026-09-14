@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import CardNav from "@/components/CardNav";
 import { useCatalogPresence } from "@/components/site/CatalogPresence";
-import { CONTACT, PALETTE } from "@/lib/brand";
+import { BRAND, CONTACT, PALETTE, THERAPEUTIC_AREAS } from "@/lib/brand";
 import { hasCatalog, type CatalogPresence } from "@/lib/catalog-presence";
 
 /**
@@ -10,11 +11,12 @@ import { hasCatalog, type CatalogPresence } from "@/lib/catalog-presence";
  *
  * CardNav ships `position: absolute` and a 800px cap; the `.dawana-nav`
  * overrides in globals.css pin it and widen it. Everything else is themed
- * through its colour props so the vendor file stays unforked.
+ * through its colour props.
  */
 const itemsFor = (presence: CatalogPresence) => [
   {
     label: "Company",
+    meta: `Est. ${BRAND.founded}`,
     bgColor: PALETTE.deep,
     textColor: "#dbf3ec",
     links: [
@@ -25,11 +27,19 @@ const itemsFor = (presence: CatalogPresence) => [
   },
   {
     label: "Portfolio",
+    meta: `${String(THERAPEUTIC_AREAS.length).padStart(2, "0")} areas`,
     bgColor: "#18564c",
     textColor: "#dbf3ec",
-    // Catalogue links appear only once something is published in the admin.
+    grow: 1.55,
+    // Every area is one click away, so the card reads full before anything
+    // is published; catalogue links join once the admin publishes something.
+    grid: THERAPEUTIC_AREAS.map((a) => ({
+      label: a.name,
+      index: a.index,
+      href: `/therapeutics#${a.id}`,
+    })),
     links: [
-      { label: "Therapeutics", href: "/therapeutics", ariaLabel: "Therapeutic areas" },
+      { label: "All therapeutic areas", href: "/therapeutics", ariaLabel: "Therapeutic areas" },
       ...(hasCatalog(presence)
         ? [{ label: "Products", href: "/products", ariaLabel: "Product catalogue" }]
         : []),
@@ -40,6 +50,7 @@ const itemsFor = (presence: CatalogPresence) => [
   },
   {
     label: "Contact",
+    meta: CONTACT.city,
     bgColor: "#266e5f",
     textColor: "#dbf3ec",
     links: [
@@ -52,13 +63,15 @@ const itemsFor = (presence: CatalogPresence) => [
 
 export default function SiteNav() {
   const presence = useCatalogPresence();
+  // Stable identity: CardNav rebuilds its timeline whenever `items` changes.
+  const items = useMemo(() => itemsFor(presence), [presence]);
 
   return (
     <div className="dawana-nav">
       <CardNav
         logo="/brand/dawana-wordmark.png"
         logoAlt="Dawana — Your Everyday Remedy"
-        items={itemsFor(presence)}
+        items={items}
         baseColor="rgba(245,242,237,0.88)"
         menuColor={PALETTE.deep}
         buttonBgColor={PALETTE.deep}

@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { Panel } from "@/components/admin/Shell";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
-import { createClient } from "@/lib/supabase/client";
-import { revalidatePublicSite } from "@/lib/revalidate-site";
+import { deleteProduct, listProducts, patchProduct, saveProduct } from "@/lib/actions/catalog";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 import { cn, formatMoney, slugify } from "@/lib/utils";
 import type { Collection, Product } from "@/lib/types";
@@ -55,16 +54,11 @@ export default function ProductsManager({
   const [draft, setDraft] = useState<Draft>(BLANK);
   const [saving, setSaving] = useState(false);
 
-  const supabase = useMemo(() => (configured ? createClient() : null), [configured]);
-
   const refresh = useCallback(async () => {
-    if (!supabase) return;
-    const { data } = await supabase
-      .from("products")
-      .select("*, collection:collections(id,name,slug)")
-      .order("created_at", { ascending: false });
-    if (data) setRows(data as unknown as Product[]);
-  }, [supabase]);
+    if (!configured) return;
+    const result = await listProducts();
+    if (result.ok) setRows(result.data);
+  }, [configured]);
 
   // Close the editor on Escape.
   useEffect(() => {
@@ -118,8 +112,8 @@ export default function ProductsManager({
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!supabase) {
-      toast.error("Connect Supabase to save products.");
+    if (!configured) {
+      toast.error("Connect the database to save products.");
       return;
     }
 
@@ -143,14 +137,10 @@ export default function ProductsManager({
 
     setSaving(true);
     try {
-      const { error } = editing
-        ? await supabase.from("products").update(payload).eq("id", editing.id)
-        : await supabase.from("products").insert(payload);
-
-      if (error) throw new Error(error.message);
+      const result = await saveProduct(payload, editing?.id);
+      if (!result.ok) throw new Error(result.error);
 
       toast.success(editing ? "Product updated." : "Product created.");
-      revalidatePublicSite();
       setOpen(false);
       await refresh();
     } catch (err) {
@@ -161,31 +151,28 @@ export default function ProductsManager({
   }
 
   async function patch(p: Product, changes: Partial<Product>) {
-    if (!supabase) return;
+    if (!configured) return;
     // Optimistic — the row flips instantly and rolls back on failure.
     setRows((prev) => prev.map((r) => (r.id === p.id ? { ...r, ...changes } : r)));
-    const { error } = await supabase.from("products").update(changes).eq("id", p.id);
-    if (error) {
+    const result = await patchProduct(p.id, changes);
+    if (!result.ok) {
       setRows((prev) => prev.map((r) => (r.id === p.id ? p : r)));
-      toast.error(error.message);
-    } else {
-      revalidatePublicSite();
+      toast.error(result.error);
     }
   }
 
   async function remove(p: Product) {
-    if (!supabase) return;
+    if (!configured) return;
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
 
     const snapshot = rows;
     setRows((prev) => prev.filter((r) => r.id !== p.id));
-    const { error } = await supabase.from("products").delete().eq("id", p.id);
-    if (error) {
+    const result = await deleteProduct(p.id);
+    if (!result.ok) {
       setRows(snapshot);
-      toast.error(error.message);
+      toast.error(result.error);
     } else {
       toast.success("Product deleted.");
-      revalidatePublicSite();
     }
   }
 
@@ -233,7 +220,7 @@ export default function ProductsManager({
         {filtered.length === 0 ? (
           <p className="py-14 text-center text-[0.9rem] text-mint-200/45">
             {!configured
-              ? "Connect Supabase to manage the catalogue."
+              ? "Connect the database to manage the catalogue."
               : rows.length === 0
                 ? "No products yet. Create your first one."
                 : "No products match this filter."}

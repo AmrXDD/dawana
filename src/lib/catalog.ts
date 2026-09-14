@@ -1,28 +1,23 @@
 import { cache } from "react";
-import { createClient as createAnonClient } from "@supabase/supabase-js";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createPublicClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { NO_CATALOG, type CatalogPresence } from "@/lib/catalog-presence";
 import type { Collection, Product } from "@/lib/types";
 
 /**
  * Is there anything published to show publicly?
  *
- * Deliberately uses a cookie-less anon client rather than the request-scoped
- * one: reading cookies would opt every public page out of static rendering.
- * RLS already limits anon reads to published rows, and head-only counts keep
- * it cheap. Wrapped in React cache() so the layout, CTA band and pages share
- * one lookup per render. Any failure reads as "nothing to show" — the safe
- * direction, since it hides links rather than pointing at an empty page.
+ * Uses the cookie-less anon client, so every public page stays statically
+ * renderable. RLS already limits anon reads to published rows, and head-only
+ * counts keep it cheap. Wrapped in React cache() so the layout, CTA band and
+ * pages share one lookup per render. Any failure reads as "nothing to show" —
+ * the safe direction, since it hides links rather than pointing at an empty
+ * page.
  */
 export const getCatalogPresence = cache(async (): Promise<CatalogPresence> => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return NO_CATALOG;
+  if (!isSupabaseConfigured()) return NO_CATALOG;
 
   try {
-    const supabase = createAnonClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const supabase = createPublicClient();
     const [products, collections] = await Promise.all([
       supabase.from("products").select("id", { count: "exact", head: true }).eq("is_published", true),
       supabase.from("collections").select("id", { count: "exact", head: true }).eq("is_published", true),
@@ -37,10 +32,10 @@ export const getCatalogPresence = cache(async (): Promise<CatalogPresence> => {
 });
 
 /**
- * Public catalogue reads. RLS restricts anonymous access to published rows,
- * so these queries don't filter on `is_published` defensively — but they do
- * degrade to an empty, non-throwing result when Supabase isn't configured,
- * which keeps the marketing site renderable before the backend exists.
+ * Public catalogue reads. They filter on `is_published` explicitly as well as
+ * relying on RLS, and degrade to an empty, non-throwing result when Supabase
+ * isn't configured, which keeps the marketing site renderable before the
+ * backend exists.
  */
 
 export interface CatalogResult {
@@ -55,7 +50,7 @@ export async function getCatalog(area?: string): Promise<CatalogResult> {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
 
     let productQuery = supabase
       .from("products")
@@ -89,8 +84,7 @@ export async function getPartners() {
   if (!isSupabaseConfigured()) return { partners: [], configured: false };
 
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
+    const { data } = await createPublicClient()
       .from("partners")
       .select("*")
       .eq("is_published", true)

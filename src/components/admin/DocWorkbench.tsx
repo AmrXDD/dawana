@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Printer, Save, Send, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Printer, Save, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +17,7 @@ export default function DocWorkbench({
   preview,
   reference,
   onSave,
-  onSend,
   saving,
-  sending,
   configured,
   sheets = 1,
 }: {
@@ -27,9 +25,7 @@ export default function DocWorkbench({
   preview: ReactNode;
   reference: string;
   onSave?: () => void;
-  onSend?: () => void;
   saving?: boolean;
-  sending?: boolean;
   configured: boolean;
   /** Number of A4 sheets, so the preview frame reserves the right height. */
   sheets?: number;
@@ -72,20 +68,6 @@ export default function DocWorkbench({
             Print / PDF
           </Button>
 
-          {onSend && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSend}
-              loading={sending}
-              disabled={!configured}
-              className="border-[color:var(--color-night-line)] text-mint-100 hover:bg-white/6"
-            >
-              <Send className="size-3.5" aria-hidden="true" />
-              Email
-            </Button>
-          )}
-
           {onSave && (
             <Button
               size="sm"
@@ -93,7 +75,7 @@ export default function DocWorkbench({
               onClick={onSave}
               loading={saving}
               disabled={!configured}
-              title={configured ? undefined : "Connect Supabase to save documents"}
+              title={configured ? undefined : "Connect the database to save documents"}
             >
               <Save className="size-3.5" aria-hidden="true" />
               Save
@@ -104,7 +86,7 @@ export default function DocWorkbench({
 
       {!configured && (
         <p className="rounded-tight border border-signal-warn/30 bg-signal-warn/8 px-4 py-3 text-[0.82rem] text-signal-warn">
-          Supabase isn&apos;t connected, so documents can&apos;t be saved or
+          The database isn&apos;t connected, so documents can&apos;t be saved or
           numbered sequentially yet. Printing to PDF works regardless.
         </p>
       )}

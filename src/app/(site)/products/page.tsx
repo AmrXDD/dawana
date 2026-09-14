@@ -18,9 +18,9 @@ export const metadata: Metadata = {
     "Browse the Dawana portfolio across six therapeutic areas, supplied to hospitals, clinics and pharmacies throughout Kuwait.",
 };
 
-/* Must be dynamic. The page reads searchParams (the area filter) and the
-   request-scoped Supabase client, both per-request. Without this, a build
-   with an empty catalogue bails out via notFound() before reaching either,
+/* Must be dynamic. The page reads searchParams (the area filter), which is
+   per-request. Without this, a build with an empty catalogue bails out via
+   notFound() before reaching it,
    so Next prerenders a static 404 — and the first render after a product is
    published would then try to go dynamic at runtime and throw. */
 export const dynamic = "force-dynamic";

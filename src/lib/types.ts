@@ -160,3 +160,15 @@ export interface HealthReport {
     node: string;
   };
 }
+
+/** A control-room login, as the team screen sees it (never the hash). */
+export interface AdminAccount {
+  id: string;
+  username: string;
+  full_name: string | null;
+  role: "developer" | "admin" | "editor";
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  locked_until: string | null;
+}

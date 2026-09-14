@@ -5,12 +5,14 @@ import Link from "next/link";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import SplitText from "@/components/motion/SplitText";
 import { useCatalogPresence } from "@/components/site/CatalogPresence";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
+
+const TOTAL = String(THERAPEUTIC_AREAS.length).padStart(2, "0");
 
 /**
  * Pinned horizontal gallery of the six therapeutic areas.
@@ -25,6 +27,7 @@ export default function TherapeuticsScroller() {
   const { hasProducts } = useCatalogPresence();
   const track = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
+  const counter = useRef<HTMLSpanElement>(null);
 
   useGSAP(
     () => {
@@ -47,13 +50,15 @@ export default function TherapeuticsScroller() {
           const distance = () =>
             Math.max(0, rail.scrollWidth - view.clientWidth);
 
-          /* Pin length is deliberately decoupled from track width. Scrolling
-             1px of page per 1px of track made the whole gallery fly past in
-             under half a viewport. Stretching the pin lets the same travel
-             play out over a longer scroll, so each card gets read. The floor
-             keeps it deliberate on wide screens where overflow is small. */
+          /* The rail is long (opening statement, six areas, closing card), so
+             there's a lot of ground to cover. At ~0.75px of travel per 1px of
+             scroll it moves quickly enough to feel alive, while the pin still
+             holds for well over two screens so every card gets its moment. */
           const pinLength = () =>
-            Math.max(distance() * 2.4, window.innerHeight * 1.6);
+            Math.max(distance() * 1.35, window.innerHeight * 2.4);
+
+          const skewTo = gsap.quickTo(rail, "skewX", { duration: 0.6, ease: "power3.out" });
+          const cards = gsap.utils.toArray<HTMLElement>("[data-card]");
 
           const tween = gsap.to(rail, {
             x: () => -distance(),
@@ -63,29 +68,64 @@ export default function TherapeuticsScroller() {
               start: "top top",
               end: () => `+=${pinLength()}`,
               pin: true,
-              scrub: 1.1,
+              scrub: 0.6,
               invalidateOnRefresh: true,
               anticipatePin: 1,
+              onUpdate: (self) => {
+                // A slight lean into the direction of travel, so speed is felt.
+                skewTo(gsap.utils.clamp(-2.5, 2.5, self.getVelocity() / -450));
+
+                if (counter.current) {
+                  const i = Math.min(cards.length, Math.floor(self.progress * cards.length) + 1);
+                  const label = String(i).padStart(2, "0");
+                  if (counter.current.textContent !== label) counter.current.textContent = label;
+                }
+              },
+              onLeave: () => skewTo(0),
+              onLeaveBack: () => skewTo(0),
             },
           });
 
-          // Each card lifts slightly as it crosses the centre of the viewport.
-          gsap.utils.toArray<HTMLElement>("[data-card]").forEach((card) => {
+          const settle = () => skewTo(0);
+          ScrollTrigger.addEventListener("scrollEnd", settle);
+
+          cards.forEach((card) => {
+            // Each card rises and brightens as it crosses into view.
             gsap.fromTo(
               card,
-              { y: 44 },
+              { y: 60, opacity: 0.45 },
               {
                 y: 0,
+                opacity: 1,
                 ease: "none",
                 scrollTrigger: {
                   trigger: card,
                   containerAnimation: tween,
-                  start: "left 92%",
-                  end: "left 45%",
+                  start: "left 100%",
+                  end: "left 55%",
                   scrub: true,
                 },
               },
             );
+
+            const line = card.querySelector("[data-card-line]");
+            if (line) {
+              gsap.fromTo(
+                line,
+                { scaleX: 0 },
+                {
+                  scaleX: 1,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: card,
+                    containerAnimation: tween,
+                    start: "left 85%",
+                    end: "left 35%",
+                    scrub: true,
+                  },
+                },
+              );
+            }
           });
 
           // Progress rail
@@ -104,7 +144,10 @@ export default function TherapeuticsScroller() {
             },
           );
 
-          return () => tween.kill();
+          return () => {
+            ScrollTrigger.removeEventListener("scrollEnd", settle);
+            tween.kill();
+          };
         },
       );
 
@@ -119,7 +162,7 @@ export default function TherapeuticsScroller() {
       id="therapeutics"
       className="u-band-dark relative overflow-hidden text-mint-100 lg:h-[100svh]"
     >
-      <div className="flex h-full flex-col justify-center py-28 lg:py-0">
+      <div className="flex h-full flex-col justify-center py-28 lg:pb-0 lg:pt-16">
         {/* Heading */}
         <div className="u-shell flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-xl">
@@ -144,37 +187,66 @@ export default function TherapeuticsScroller() {
             padding, so the first card still aligns with the heading. */}
         <div
           ref={viewport}
-          className="u-rail-mask mt-14 lg:mt-20 lg:overflow-hidden"
+          className="u-rail-mask mt-12 lg:mt-10 lg:overflow-hidden"
         >
           <div
             ref={track}
-            className="flex flex-col gap-5 px-[var(--spacing-gutter)] lg:w-max lg:flex-row lg:gap-7 lg:will-change-transform"
+            className="flex flex-col gap-5 px-[var(--spacing-gutter)] lg:w-max lg:flex-row lg:items-stretch lg:gap-8 lg:py-4 lg:will-change-transform"
           >
+            {/* Opening statement — desktop rail only */}
+            <div className="hidden shrink-0 flex-col justify-between rounded-card border border-mint/25 bg-mint/[0.07] p-9 lg:flex lg:h-[24rem] lg:w-[22rem]">
+              <p className="u-eyebrow text-mint">Scroll the portfolio</p>
+              <div>
+                <p className="font-display text-[2rem] font-semibold leading-[1.08] tracking-tight text-mint-50">
+                  Registered, stored and delivered under one chain of custody.
+                </p>
+                <p className="mt-6 inline-flex items-center gap-2 font-mono text-[0.72rem] uppercase tracking-[0.16em] text-mint-300/70">
+                  {TOTAL} areas
+                  <ArrowRight className="size-3.5" aria-hidden="true" />
+                </p>
+              </div>
+            </div>
+
             {THERAPEUTIC_AREAS.map((area) => (
               <article
                 key={area.id}
                 id={area.id}
                 data-card
-                className="u-fill-raised group relative flex flex-col justify-between overflow-hidden rounded-card border border-[color:var(--color-night-line)] p-8 backdrop-blur-[2px] transition-colors duration-500 hover:border-mint/45 lg:h-[23rem] lg:w-[21rem] lg:p-9"
+                className="u-fill-raised group relative flex shrink-0 flex-col justify-between overflow-hidden rounded-card border border-mint/20 p-8 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)] backdrop-blur-[2px] transition-colors duration-500 hover:border-mint/55 lg:h-[24rem] lg:w-[24rem] lg:p-10"
               >
+                {/* Accent line that draws in as the card arrives */}
+                <span
+                  aria-hidden="true"
+                  data-card-line
+                  className="absolute inset-x-0 top-0 h-[3px] origin-left bg-gradient-to-r from-mint via-mint-300 to-transparent"
+                />
+
+                {/* Oversized index, sitting behind the copy */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-10 -right-3 select-none font-display text-[11rem] font-semibold leading-none tracking-tighter text-mint/[0.07] transition-colors duration-500 group-hover:text-mint/[0.12]"
+                >
+                  {area.index}
+                </span>
+
                 {/* Hover wash */}
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                   style={{
                     background:
-                      "radial-gradient(80% 60% at 50% 100%, rgba(92,188,167,0.18), transparent 70%)",
+                      "radial-gradient(80% 60% at 50% 100%, rgba(92,188,167,0.2), transparent 70%)",
                   }}
                 />
 
                 <div className="relative">
-                  <span className="font-mono text-[0.72rem] tracking-[0.18em] text-mint/70">
-                    {area.index}
+                  <span className="inline-flex items-center gap-2 rounded-capsule border border-mint/30 bg-mint/10 px-3 py-1 font-mono text-[0.7rem] tracking-[0.18em] text-mint">
+                    {area.index} / {TOTAL}
                   </span>
-                  <h3 className="mt-6 font-display text-head font-semibold text-mint-50">
+                  <h3 className="mt-7 font-display text-head font-semibold text-mint-50">
                     {area.name}
                   </h3>
-                  <p className="mt-4 text-[0.9rem] leading-relaxed text-mint-200/65">
+                  <p className="mt-4 text-[0.95rem] leading-relaxed text-mint-100/80">
                     {area.blurb}
                   </p>
                 </div>
@@ -182,7 +254,7 @@ export default function TherapeuticsScroller() {
                 {hasProducts && (
                   <Link
                     href={`/products?area=${area.id}`}
-                    className="relative mt-8 inline-flex items-center gap-2 text-[0.85rem] font-medium text-mint transition-colors duration-300 hover:text-mint-200"
+                    className="relative mt-8 inline-flex items-center gap-2 text-[0.88rem] font-medium text-mint transition-colors duration-300 hover:text-mint-200"
                   >
                     View products
                     <ArrowUpRight
@@ -193,15 +265,36 @@ export default function TherapeuticsScroller() {
                 )}
               </article>
             ))}
+
+            {/* Closing card — desktop rail only */}
+            <div className="hidden shrink-0 flex-col justify-between rounded-card bg-mint p-9 text-mint-950 lg:flex lg:h-[24rem] lg:w-[22rem]">
+              <p className="u-eyebrow text-deep/70">For partners</p>
+              <div>
+                <p className="font-display text-[1.9rem] font-semibold leading-[1.1] tracking-tight">
+                  Bringing a product to Kuwait?
+                </p>
+                <Link
+                  href="/contact"
+                  className="mt-7 inline-flex items-center gap-2 rounded-capsule bg-deep px-5 py-3 text-[0.88rem] font-medium text-mint-50 transition-colors duration-300 hover:bg-mint-950"
+                >
+                  Talk to our team
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Progress — only meaningful while pinned */}
-        <div className="u-shell mt-14 hidden lg:block">
-          <div className="h-px w-full bg-[color:var(--color-night-line)]">
+        <div className="u-shell mt-10 hidden items-center gap-6 lg:flex">
+          <p className="shrink-0 font-mono text-[0.78rem] tabular-nums tracking-[0.14em] text-mint-200/70">
+            <span ref={counter} className="text-mint">01</span>
+            <span className="text-mint-300/40"> / {TOTAL}</span>
+          </p>
+          <div className="h-[3px] w-full overflow-hidden rounded-full bg-white/10">
             <div
               data-progress
-              className="h-full origin-left bg-gradient-to-r from-mint-500 to-mint"
+              className="h-full origin-left rounded-full bg-gradient-to-r from-mint-500 to-mint shadow-[0_0_14px_rgba(92,188,167,0.7)]"
             />
           </div>
         </div>

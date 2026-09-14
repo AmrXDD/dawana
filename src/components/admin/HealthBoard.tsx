@@ -51,7 +51,10 @@ export default function HealthBoard() {
     setError(null);
     try {
       const res = await fetch("/api/health", { cache: "no-store" });
-      setReport((await res.json()) as HealthReport);
+      const json = (await res.json()) as HealthReport & { error?: string };
+      // A 503 still carries a full report; anything without checks is a real failure.
+      if (!Array.isArray(json.checks)) throw new Error(json.error);
+      setReport(json);
     } catch {
       setError("Could not reach the health endpoint.");
     } finally {
