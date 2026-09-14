@@ -15,7 +15,8 @@ declare module "@/components/ScrollExpand" {
     mediaType?: "image" | "video";
     poster?: string;
     alt?: string;
-    title?: string;
+    /** Rendered inside the title layer, so rich content is fine. */
+    title?: ReactNode;
     scrollHint?: string;
     /** Starting frame width as a % of the viewport. */
     startWidth?: number;

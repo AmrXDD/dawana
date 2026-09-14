@@ -764,3 +764,55 @@ html.has-custom-cursor
     display: none !important;
   }
 }
+
+/* ============================================================
+   SKYLINE CHAPTER — ScrollExpand overrides
+   ============================================================ */
+
+/* The vendor writes --se-title-size inline from the STAGE width (up to 84px),
+   which overflows the much narrower starting frame and spills white text onto
+   the bone page. Size from the frame instead; this selector outranks the
+   vendor rule, and font-size isn't the inline-set property. */
+.dw-skyline .scroll-expand__title {
+  font-size: clamp(1.9rem, 4.2vw, 4.25rem);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+/* The hint sits below the frame on the bone page; the vendor's white text
+   was invisible there. It fades out as the frame opens, so ink is right. */
+.dw-skyline .scroll-expand__hint {
+  color: var(--color-ink-faint);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* The overlay is a flex column, and flex items shrink by default — on short
+   phones that silently squashed the facts box and clipped its last row.
+   Never shrink; the content is sized to fit instead. */
+.dw-skyline .scroll-expand__overlay > * {
+  flex-shrink: 0;
+}
+
+/* Invisible overlay must not catch clicks over the small frame.
+   `data-live` is mirrored from the inline opacity in SkylineReveal. */
+.dw-skyline .scroll-expand__overlay:not([data-live]) {
+  pointer-events: none;
+}
+
+/* Keyboard users tabbing into the link before scrolling would otherwise
+   focus an invisible, clipped element — open the plate for them instead. */
+.dw-skyline .scroll-expand__frame:focus-within {
+  clip-path: none !important;
+}
+.dw-skyline .scroll-expand__frame:focus-within .scroll-expand__scrim {
+  opacity: 0.58 !important;
+}
+.dw-skyline .scroll-expand__frame:focus-within .scroll-expand__overlay {
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto;
+}
