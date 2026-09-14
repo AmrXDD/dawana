@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Lenis from "lenis";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useSiteReady } from "@/components/site/SiteGate";
 
 /**
  * Drives the whole page with Lenis and hands scroll ownership to GSAP's
@@ -11,7 +12,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
  * position. Without this marriage, pinning visibly drifts.
  */
 export default function SmoothScroll() {
+  // Scrolling stays locked behind the heartbeat loader; Lenis attaches on reveal.
+  const ready = useSiteReady();
+
   useEffect(() => {
+    if (!ready) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
@@ -55,7 +60,7 @@ export default function SmoothScroll() {
       gsap.ticker.remove(tick);
       lenis.destroy();
     };
-  }, []);
+  }, [ready]);
 
   return null;
 }

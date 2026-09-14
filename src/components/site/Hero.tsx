@@ -11,6 +11,7 @@ import PulseLine from "@/components/motion/PulseLine";
 import Magnetic from "@/components/motion/Magnetic";
 import { ButtonLink } from "@/components/ui/Button";
 import SideRays from "@/components/SideRays";
+import { useSiteReady } from "@/components/site/SiteGate";
 import { BRAND, CONTACT, PALETTE } from "@/lib/brand";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -25,6 +26,8 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
  */
 export default function Hero() {
   const root = useRef<HTMLElement>(null);
+  // The WebGL context spins up only once the loader has opened.
+  const ready = useSiteReady();
 
   useGSAP(
     () => {
@@ -115,6 +118,7 @@ export default function Hero() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-20 opacity-[0.55]"
       >
+        {ready && (
         <SideRays
           speed={1.1}
           rayColor1={PALETTE.mint}
@@ -128,6 +132,7 @@ export default function Hero() {
           falloff={1.9}
           opacity={0.55}
         />
+        )}
       </div>
 
       {/* Ground wash — mint bleeding out of the lower-right corner */}

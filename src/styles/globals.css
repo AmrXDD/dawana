@@ -612,3 +612,36 @@
     animation: none !important;
   }
 }
+
+/* ============================================================
+   HEARTBEAT LOADER + SITE GATE
+   Pure CSS so it holds from the very first paint, before any JS runs.
+   ============================================================ */
+
+/* Lock scroll for as long as the loader exists in the DOM. */
+html:has(.dw-loader),
+body:has(.dw-loader) {
+  overflow: hidden;
+}
+
+/* The site is rendered but invisible until the gate opens. */
+[data-gate="closed"] {
+  visibility: hidden;
+}
+
+/* Decorative CSS loops wait too, so marquees don't start mid-cycle. */
+[data-gate="closed"] .a-marquee,
+[data-gate="closed"] .a-blip {
+  animation-play-state: paused;
+}
+
+@keyframes dw-dial-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dw-dial {
+  animation: dw-dial-spin 14s linear infinite;
+  transform-origin: 50% 50%;
+}
