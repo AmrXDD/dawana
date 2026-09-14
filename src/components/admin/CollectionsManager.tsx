@@ -316,7 +316,7 @@ export default function CollectionsManager({
               <SelectField
                 label="Therapeutic area"
                 value={draft.therapeutic_area}
-                onChange={(e) => setDraft({ ...draft, therapeutic_area: e.target.value })}
+                onValueChange={(value) => setDraft({ ...draft, therapeutic_area: value })}
               >
                 <option value="">Unassigned</option>
                 {THERAPEUTIC_AREAS.map((a) => (

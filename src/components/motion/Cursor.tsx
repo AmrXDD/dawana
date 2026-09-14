@@ -17,7 +17,7 @@ import { useEffect, useRef } from "react";
    ───────────────────────────────────────────────────────────────────────── */
 
 const INTERACTIVE =
-  'a[href], button, [role="button"], summary, label[for], select, [data-cursor="hover"]';
+  'a[href], button, [role="button"], [role="option"], summary, label[for], select, [data-cursor="hover"]';
 
 /* Native caret wins wherever the user needs character-level precision.
    iframes are included because pointer events stop at their edge — the

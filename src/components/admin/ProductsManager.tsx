@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { toast } from "sonner";
 import { Eye, EyeOff, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { Panel } from "@/components/admin/Shell";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
 import { createClient } from "@/lib/supabase/client";
@@ -202,11 +203,12 @@ export default function ProductsManager({
           />
         </div>
 
-        <select
+        <Select
+          tone="dark"
           value={area}
-          onChange={(e) => setArea(e.target.value)}
+          onValueChange={setArea}
           aria-label="Filter by therapeutic area"
-          className="cursor-pointer rounded-tight border border-[color:var(--color-night-line)] bg-night-raised/70 px-3.5 py-2.5 text-sm text-mint-50 outline-none focus:border-mint"
+          className="sm:w-56"
         >
           <option value="">All areas</option>
           {THERAPEUTIC_AREAS.map((a) => (
@@ -214,7 +216,7 @@ export default function ProductsManager({
               {a.name}
             </option>
           ))}
-        </select>
+        </Select>
 
         <Button variant="mint" onClick={startCreate}>
           <Plus className="size-4" aria-hidden="true" />
@@ -428,7 +430,7 @@ export default function ProductsManager({
                 <SelectField
                   label="Therapeutic area"
                   value={draft.therapeutic_area}
-                  onChange={(e) => setDraft({ ...draft, therapeutic_area: e.target.value })}
+                  onValueChange={(value) => setDraft({ ...draft, therapeutic_area: value })}
                 >
                   <option value="">Unassigned</option>
                   {THERAPEUTIC_AREAS.map((a) => (
@@ -441,7 +443,7 @@ export default function ProductsManager({
                 <SelectField
                   label="Collection"
                   value={draft.collection_id}
-                  onChange={(e) => setDraft({ ...draft, collection_id: e.target.value })}
+                  onValueChange={(value) => setDraft({ ...draft, collection_id: value })}
                 >
                   <option value="">None</option>
                   {collections.map((c) => (
@@ -480,7 +482,7 @@ export default function ProductsManager({
                 <SelectField
                   label="Currency"
                   value={draft.currency}
-                  onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
+                  onValueChange={(value) => setDraft({ ...draft, currency: value })}
                 >
                   {["KWD", "USD", "EUR", "AED", "SAR"].map((c) => (
                     <option key={c}>{c}</option>

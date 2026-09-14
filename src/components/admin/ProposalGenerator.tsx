@@ -280,7 +280,7 @@ export default function ProposalGenerator({ configured }: { configured: boolean 
           <SelectField
             label="Currency"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onValueChange={(value) => setCurrency(value)}
           >
             {["KWD", "USD", "EUR", "AED", "SAR"].map((c) => (
               <option key={c}>{c}</option>

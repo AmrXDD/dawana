@@ -118,7 +118,7 @@ export default function ReceiptGenerator({ configured }: { configured: boolean }
           <SelectField
             label="Payment method"
             value={method}
-            onChange={(e) => setMethod(e.target.value as Receipt["payment_method"])}
+            onValueChange={(value) => setMethod(value as Receipt["payment_method"])}
           >
             {["Cash", "Credit Card", "Bank Transfer", "Cheque"].map((m) => (
               <option key={m}>{m}</option>
@@ -127,7 +127,7 @@ export default function ReceiptGenerator({ configured }: { configured: boolean }
           <SelectField
             label="Currency"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onValueChange={(value) => setCurrency(value)}
           >
             {["KWD", "USD", "EUR", "AED", "SAR"].map((c) => (
               <option key={c}>{c}</option>

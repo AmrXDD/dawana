@@ -5,9 +5,9 @@ import {
   useId,
   type InputHTMLAttributes,
   type ReactNode,
-  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
+import Select, { type SelectOption } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
 /* Dark-surface form controls for the admin. Labels are always visible —
@@ -90,17 +90,6 @@ export const Textarea = forwardRef<
   );
 });
 
-export const Select = forwardRef<
-  HTMLSelectElement,
-  SelectHTMLAttributes<HTMLSelectElement>
->(function Select({ className, children, ...props }, ref) {
-  return (
-    <select ref={ref} className={cn(control, "cursor-pointer", className)} {...props}>
-      {children}
-    </select>
-  );
-});
-
 /** Convenience wrappers so most fields are a single line at the call site. */
 export function TextField({
   label,
@@ -136,6 +125,8 @@ export function TextAreaField({
   );
 }
 
+/** Labelled dropdown. Takes `<option>` children like a native select, or
+ *  `options`; renders the custom listbox in the dark admin tone. */
 export function SelectField({
   label,
   hint,
@@ -143,18 +134,36 @@ export function SelectField({
   required,
   className,
   children,
-  ...props
+  options,
+  value,
+  onValueChange,
+  disabled,
 }: {
   label: string;
   hint?: string;
   error?: string;
+  required?: boolean;
   className?: string;
-  children: ReactNode;
-} & SelectHTMLAttributes<HTMLSelectElement>) {
+  children?: ReactNode;
+  options?: SelectOption[];
+  value?: string;
+  onValueChange?: (value: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <Field label={label} hint={hint} error={error} required={required} className={className}>
       {(id, describedBy) => (
-        <Select id={id} aria-describedby={describedBy} required={required} {...props}>
+        <Select
+          id={id}
+          tone="dark"
+          aria-describedby={describedBy}
+          aria-invalid={!!error || undefined}
+          required={required}
+          disabled={disabled}
+          options={options}
+          value={value}
+          onValueChange={onValueChange}
+        >
           {children}
         </Select>
       )}

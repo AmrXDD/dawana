@@ -4,7 +4,18 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Select, { type SelectOption } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
+
+/* Values are the exact strings the API and inbox already expect. The
+   descriptions help a visitor pick the right desk. */
+const SUBJECTS: SelectOption[] = [
+  { value: "General enquiry", label: "General enquiry", description: "Questions about Dawana or our services" },
+  { value: "Distribution partnership", label: "Distribution partnership", description: "Represent your brand in Kuwait" },
+  { value: "Product registration", label: "Product registration", description: "Ministry of Health registration support" },
+  { value: "Tender opportunity", label: "Tender opportunity", description: "Government and institutional tenders" },
+  { value: "Careers", label: "Careers", description: "Join the Dawana team" },
+];
 
 type Errors = Partial<Record<"name" | "email" | "message", string>>;
 
@@ -167,13 +178,7 @@ export default function ContactForm() {
         </Row>
 
         <Row id="subject" label="Subject">
-          <select id="subject" name="subject" className={cn(inputCls, "cursor-pointer")}>
-            <option>General enquiry</option>
-            <option>Distribution partnership</option>
-            <option>Product registration</option>
-            <option>Tender opportunity</option>
-            <option>Careers</option>
-          </select>
+          <Select id="subject" name="subject" tone="light" options={SUBJECTS} />
         </Row>
       </div>
 
