@@ -10,6 +10,8 @@ const schema = z.object({
   organisation: z.string().trim().max(160).optional().or(z.literal("")),
   subject: z.string().trim().max(160).optional().or(z.literal("")),
   message: z.string().trim().min(10, "Message is too short").max(5000),
+  /** Address of the product page the enquiry started from, if any. */
+  product: z.string().trim().max(200).optional().or(z.literal("")),
   // Honeypot — must stay empty.
   company_website: z.string().max(0).optional().or(z.literal("")),
 });
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { company_website, ...data } = parsed.data;
+  const { company_website, product, ...data } = parsed.data;
 
   // Silently accept honeypot hits so bots don't learn the rule.
   if (company_website) return NextResponse.json({ ok: true });
@@ -49,11 +51,28 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error } = await createAdminClient().from("contact_messages").insert({
+  const db = createAdminClient();
+
+  /* A product enquiry names the product from the database, not from the
+     page, so the subject line in the admin is always accurate. */
+  let subject = data.subject || null;
+  if (product) {
+    const { data: row } = await db
+      .from("products")
+      .select("name, sku, strength")
+      .eq("slug", product)
+      .eq("is_published", true)
+      .maybeSingle();
+    if (row) {
+      subject = `Product enquiry — ${row.name}${row.strength ? ` ${row.strength}` : ""} (${row.sku})`.slice(0, 160);
+    }
+  }
+
+  const { error } = await db.from("contact_messages").insert({
     name: data.name,
     email: data.email,
     organisation: data.organisation || null,
-    subject: data.subject || null,
+    subject,
     message: data.message,
     user_agent: request.headers.get("user-agent"),
   });

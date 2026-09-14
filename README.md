@@ -60,8 +60,9 @@ See [`.env.example`](.env.example) for the annotated list.
 
 ## Database
 
-Paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
-into the Supabase SQL editor and run it. It's idempotent. It creates the
+Paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql),
+then [`0002_product_pages_and_collections.sql`](supabase/migrations/0002_product_pages_and_collections.sql),
+into the Supabase SQL editor and run them in order. Both are idempotent. It creates the
 catalogue, document stores, contact inbox, the control-room accounts table
 and **row-level security**: the public key can only
 read published catalogue rows; everything else goes through the server.

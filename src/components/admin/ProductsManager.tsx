@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
+import { Check, ExternalLink, Eye, EyeOff, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { Panel } from "@/components/admin/Shell";
@@ -34,12 +34,11 @@ const BLANK = {
   currency: "KWD",
   stock: "0",
   image_url: "",
-  collection_id: "",
   is_published: false,
   is_featured: false,
 };
 
-type Draft = typeof BLANK;
+type Draft = typeof BLANK & { collection_ids: string[] };
 
 export default function ProductsManager({
   initialProducts,
@@ -51,7 +50,7 @@ export default function ProductsManager({
   const [area, setArea] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [draft, setDraft] = useState<Draft>(BLANK);
+  const [draft, setDraft] = useState<Draft>({ ...BLANK, collection_ids: [] });
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -81,7 +80,7 @@ export default function ProductsManager({
 
   function startCreate() {
     setEditing(null);
-    setDraft(BLANK);
+    setDraft({ ...BLANK, collection_ids: [] });
     setOpen(true);
   }
 
@@ -103,7 +102,7 @@ export default function ProductsManager({
       currency: p.currency ?? "KWD",
       stock: String(p.stock ?? 0),
       image_url: p.image_url ?? "",
-      collection_id: p.collection_id ?? "",
+      collection_ids: p.collections?.map((c) => c.id) ?? [],
       is_published: p.is_published,
       is_featured: p.is_featured,
     });
@@ -117,12 +116,12 @@ export default function ProductsManager({
       return;
     }
 
+    const { collection_ids, ...fields } = draft;
     const payload = {
-      ...draft,
+      ...fields,
       sku: draft.sku.trim() || `DW-${slugify(draft.name).slice(0, 20).toUpperCase()}`,
       price: draft.price === "" ? null : Number(draft.price),
       stock: Number(draft.stock) || 0,
-      collection_id: draft.collection_id || null,
       generic_name: draft.generic_name || null,
       strength: draft.strength || null,
       form: draft.form || null,
@@ -137,7 +136,7 @@ export default function ProductsManager({
 
     setSaving(true);
     try {
-      const result = await saveProduct(payload, editing?.id);
+      const result = await saveProduct(payload, collection_ids, editing?.id);
       if (!result.ok) throw new Error(result.error);
 
       toast.success(editing ? "Product updated." : "Product created.");
@@ -265,6 +264,11 @@ export default function ProductsManager({
                       {THERAPEUTIC_AREAS.find((a) => a.id === p.therapeutic_area)?.name ??
                         p.therapeutic_area ??
                         "—"}
+                      {p.collections && p.collections.length > 0 && (
+                        <span className="mt-1 block truncate font-mono text-[0.66rem] text-mint-300/45">
+                          {p.collections.map((c) => c.name).join(" · ")}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 pr-4 font-mono text-[0.82rem] tabular-nums text-mint-100">
                       {p.price != null ? formatMoney(p.price, p.currency) : "—"}
@@ -300,6 +304,18 @@ export default function ProductsManager({
                     </td>
                     <td className="py-3.5">
                       <span className="flex justify-end gap-1">
+                        {p.is_published && p.slug && (
+                          <a
+                            href={`/products/${p.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`View ${p.name} on the site`}
+                            title="View on the site"
+                            className="grid size-8 place-items-center rounded-tight text-mint-300/50 transition-colors hover:bg-white/6 hover:text-mint"
+                          >
+                            <ExternalLink className="size-4" />
+                          </a>
+                        )}
                         <button
                           type="button"
                           onClick={() => patch(p, { is_featured: !p.is_featured })}
@@ -418,7 +434,7 @@ export default function ProductsManager({
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4">
                 <SelectField
                   label="Therapeutic area"
                   value={draft.therapeutic_area}
@@ -432,19 +448,63 @@ export default function ProductsManager({
                   ))}
                 </SelectField>
 
-                <SelectField
-                  label="Collection"
-                  value={draft.collection_id}
-                  onValueChange={(value) => setDraft({ ...draft, collection_id: value })}
-                >
-                  <option value="">None</option>
-                  {collections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </SelectField>
+
               </div>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1.5 text-[0.78rem] font-medium text-mint-200/80">
+                  Collections
+                  <span className="ml-2 font-normal text-mint-300/45">
+                    {draft.collection_ids.length === 0
+                      ? "none selected"
+                      : `${draft.collection_ids.length} selected`}
+                  </span>
+                </legend>
+                {collections.length === 0 ? (
+                  <p className="rounded-tight border border-dashed border-[color:var(--color-night-line)] px-4 py-3 text-[0.8rem] text-mint-300/50">
+                    No collections yet — create them under Collections, then add products here.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {collections.map((c) => {
+                      const on = draft.collection_ids.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              collection_ids: on
+                                ? draft.collection_ids.filter((id) => id !== c.id)
+                                : [...draft.collection_ids, c.id],
+                            })
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-capsule border px-3.5 py-1.5 text-[0.8rem] transition-colors",
+                            on
+                              ? "border-mint/60 bg-mint/15 text-mint-50"
+                              : "border-[color:var(--color-night-line)] text-mint-200/60 hover:border-mint/30 hover:text-mint-100",
+                          )}
+                        >
+                          {on ? (
+                            <Check className="size-3.5 text-mint" strokeWidth={2.5} aria-hidden="true" />
+                          ) : (
+                            <Plus className="size-3.5" aria-hidden="true" />
+                          )}
+                          {c.name}
+                          {!c.is_published && (
+                            <span className="font-mono text-[0.58rem] uppercase tracking-[0.12em] text-mint-300/40">
+                              draft
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </fieldset>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField
@@ -464,6 +524,7 @@ export default function ProductsManager({
               <div className="grid gap-4 sm:grid-cols-4">
                 <TextField
                   label="Price"
+                  hint="Internal only — never shown on the site."
                   type="number"
                   step="0.001"
                   min="0"

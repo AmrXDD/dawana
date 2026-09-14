@@ -174,6 +174,12 @@ export default function CollectionsManager({
                   </div>
                   <p className="mt-1 font-mono text-[0.72rem] text-mint-300/40">
                     /{c.slug}
+                    {c.product_count !== undefined && (
+                      <span className="text-mint-300/60">
+                        {" · "}
+                        {c.product_count} {c.product_count === 1 ? "product" : "products"}
+                      </span>
+                    )}
                   </p>
                 </div>
 

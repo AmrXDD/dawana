@@ -12,11 +12,14 @@ export interface Collection {
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  /** Admin only: products linked to this collection. */
+  product_count?: number;
 }
 
 export interface Product {
   id: string;
-  collection_id: string | null;
+  /** Page address: /products/<slug>. Set once when the product is created. */
+  slug: string;
   sku: string;
   name: string;
   generic_name: string | null;
@@ -36,7 +39,8 @@ export interface Product {
   is_featured: boolean;
   created_at: string;
   updated_at: string;
-  collection?: Pick<Collection, "id" | "name" | "slug"> | null;
+  /** Every collection the product sits in (attached by the data layer). */
+  collections?: Pick<Collection, "id" | "name" | "slug">[];
 }
 
 export interface LineItem {

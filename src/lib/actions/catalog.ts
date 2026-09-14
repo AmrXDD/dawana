@@ -1,8 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
 import { ActionError, assertAdmin, run } from "@/lib/auth/admin";
+import { attachCollections } from "@/lib/product-collections";
+import { slugify } from "@/lib/utils";
 import type { Collection, Product } from "@/lib/types";
 
 /**
@@ -12,7 +16,7 @@ import type { Collection, Product } from "@/lib/types";
  */
 
 const PRODUCT_FIELDS = [
-  "collection_id", "sku", "name", "generic_name", "strength", "form", "pack_size",
+  "sku", "name", "generic_name", "strength", "form", "pack_size",
   "description", "therapeutic_area", "manufacturer", "country_of_origin",
   "registration_no", "price", "currency", "stock", "image_url",
   "is_published", "is_featured",
@@ -47,29 +51,68 @@ function refreshSite() {
   revalidatePath("/", "layout");
 }
 
-const PRODUCT_SELECT = "*, collection:collections(id,name,slug)";
-
 export async function listProducts() {
   return run(async () => {
     await assertAdmin("catalog");
-    const { data, error } = await createAdminClient()
+    const db = createAdminClient();
+    const { data, error } = await db
       .from("products")
-      .select(PRODUCT_SELECT)
+      .select("*")
       .order("created_at", { ascending: false });
     fail(error);
-    return (data ?? []) as unknown as Product[];
+    return attachCollections(db, (data ?? []) as Product[]);
   });
 }
 
-export async function saveProduct(input: Record<string, unknown>, id?: string) {
+/** A page address no other product uses: the name, then name + SKU, then a random tail. */
+async function uniqueSlug(db: SupabaseClient, name: string, sku: string) {
+  const base = slugify(name).replace(/^-|-$/g, "") || slugify(sku) || "product";
+  const candidates = [base, `${base}-${slugify(sku)}`.replace(/-+$/, ""), `${base}-${randomUUID().slice(0, 6)}`];
+  for (const slug of candidates) {
+    const { count } = await db.from("products").select("id", { count: "exact", head: true }).eq("slug", slug);
+    if (!count) return slug;
+  }
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * Creates or updates a product and sets exactly which collections it's in.
+ * The page address is fixed at creation so shared links keep working after
+ * a rename.
+ */
+export async function saveProduct(
+  input: Record<string, unknown>,
+  collectionIds: string[],
+  id?: string,
+) {
   return run(async () => {
     await assertAdmin("catalog");
     const payload = pick(input, PRODUCT_FIELDS);
-    if (!String(payload.name ?? "").trim()) throw new ActionError("Give the product a name.");
+    const name = String(payload.name ?? "").trim();
+    if (!name) throw new ActionError("Give the product a name.");
 
-    const db = createAdminClient().from("products");
-    const { error } = id ? await db.update(payload).eq("id", id) : await db.insert(payload);
-    fail(error);
+    const db = createAdminClient();
+    const productId = id ?? randomUUID();
+
+    if (id) {
+      fail((await db.from("products").update(payload).eq("id", id)).error);
+    } else {
+      const slug = await uniqueSlug(db, name, String(payload.sku ?? ""));
+      fail((await db.from("products").insert({ ...payload, id: productId, slug })).error);
+    }
+
+    fail((await db.from("product_collections").delete().eq("product_id", productId)).error);
+    const unique = [...new Set(collectionIds.filter((c) => typeof c === "string" && c))];
+    if (unique.length) {
+      fail(
+        (
+          await db
+            .from("product_collections")
+            .insert(unique.map((collection_id) => ({ product_id: productId, collection_id })))
+        ).error,
+      );
+    }
+
     refreshSite();
   });
 }

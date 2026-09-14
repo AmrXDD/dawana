@@ -1,4 +1,5 @@
 import { createAdminClient, isAdminDataConfigured } from "@/lib/supabase/server";
+import { attachCollections } from "@/lib/product-collections";
 import type { Collection, ContactMessage, Product } from "@/lib/types";
 
 /**
@@ -34,7 +35,7 @@ export async function getProducts(opts?: {
     const supabase = createAdminClient();
     let query = supabase
       .from("products")
-      .select("*, collection:collections(id,name,slug)", { count: "exact" })
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
       .limit(opts?.limit ?? 100);
 
@@ -50,7 +51,7 @@ export async function getProducts(opts?: {
     if (error) return empty<Product>(true, error.message);
 
     return {
-      rows: (data ?? []) as unknown as Product[],
+      rows: await attachCollections(supabase, (data ?? []) as Product[]),
       count: count ?? 0,
       configured: true,
       error: null,
@@ -71,8 +72,14 @@ export async function getCollections(): Promise<Listing<Collection>> {
       .order("position", { ascending: true });
 
     if (error) return empty<Collection>(true, error.message);
+
+    // How many products sit in each collection, for the admin cards.
+    const { data: links } = await supabase.from("product_collections").select("collection_id");
+    const counts = new Map<string, number>();
+    for (const l of links ?? []) counts.set(l.collection_id, (counts.get(l.collection_id) ?? 0) + 1);
+
     return {
-      rows: (data ?? []) as Collection[],
+      rows: ((data ?? []) as Collection[]).map((c) => ({ ...c, product_count: counts.get(c.id) ?? 0 })),
       count: count ?? 0,
       configured: true,
       error: null,

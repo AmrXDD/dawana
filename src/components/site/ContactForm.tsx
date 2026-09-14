@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Pill, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 /* Values are the exact strings the API and inbox already expect. The
    descriptions help a visitor pick the right desk. */
 const SUBJECTS: SelectOption[] = [
+  { value: "Product enquiry", label: "Product enquiry", description: "Availability and supply of a specific product" },
   { value: "General enquiry", label: "General enquiry", description: "Questions about Dawana or our services" },
   { value: "Distribution partnership", label: "Distribution partnership", description: "Represent your brand in Kuwait" },
   { value: "Product registration", label: "Product registration", description: "Ministry of Health registration support" },
@@ -58,6 +60,14 @@ function Row({
 }
 
 export default function ContactForm() {
+  /* Arriving from a product page: the enquiry is about that product. The
+     name is only for display — the server looks the product up by its
+     address and writes the subject itself. */
+  const params = useSearchParams();
+  const [product, setProduct] = useState(() => {
+    const slug = params.get("product");
+    return slug ? { slug, name: params.get("name")?.slice(0, 120) || slug } : null;
+  });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -87,7 +97,7 @@ export default function ContactForm() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, product: product?.slug }),
       });
       const json = await res.json();
 
@@ -178,9 +188,35 @@ export default function ContactForm() {
         </Row>
 
         <Row id="subject" label="Subject">
-          <Select id="subject" name="subject" tone="light" options={SUBJECTS} />
+          <Select
+            id="subject"
+            name="subject"
+            tone="light"
+            options={SUBJECTS}
+            defaultValue={product ? "Product enquiry" : "General enquiry"}
+          />
         </Row>
       </div>
+
+      {product && (
+        <div className="flex items-center gap-3 rounded-tight border border-mint-300 bg-mint-50/80 px-4 py-3">
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-deep text-mint">
+            <Pill className="size-4" strokeWidth={1.7} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="u-eyebrow text-mint-700">Enquiring about</p>
+            <p className="truncate text-[0.95rem] font-medium text-deep">{product.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setProduct(null)}
+            aria-label="Remove product from this enquiry"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-ink-faint transition-colors hover:bg-white hover:text-deep"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       <Row id="message" label="Message" error={errors.message} required>
         <textarea
@@ -190,7 +226,11 @@ export default function ContactForm() {
           aria-invalid={!!errors.message}
           aria-describedby={errors.message ? "message-err" : undefined}
           className={cn(inputCls, "resize-y leading-relaxed", errors.message && "border-signal-bad")}
-          placeholder="Tell us a little about what you need."
+          placeholder={
+            product
+              ? "Quantity needed, your pharmacy, clinic or institution, and delivery area."
+              : "Tell us a little about what you need."
+          }
         />
       </Row>
 

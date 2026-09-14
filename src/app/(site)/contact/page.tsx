@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Clock, Instagram, Mail, MapPin, Phone } from "lucide-react";
 import PageHero from "@/components/site/PageHero";
 import ContactForm from "@/components/site/ContactForm";
@@ -71,7 +72,10 @@ export default function ContactPage() {
                   Fields marked <span className="text-mint-600">*</span> are required.
                 </p>
                 <div className="mt-8">
-                  <ContactForm />
+                  {/* Suspense: the form reads ?product= to pre-fill a product enquiry. */}
+                  <Suspense fallback={<div className="h-[30rem] animate-pulse rounded-tight bg-mint-50/60" />}>
+                    <ContactForm />
+                  </Suspense>
                 </div>
               </div>
             </Reveal>

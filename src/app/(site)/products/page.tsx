@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import PageHero from "@/components/site/PageHero";
 import CTABand from "@/components/site/CTABand";
 import EmptyState from "@/components/site/EmptyState";
@@ -10,7 +11,7 @@ import { notFound } from "next/navigation";
 import { getCatalog, getCatalogPresence } from "@/lib/catalog";
 import { hasCatalog } from "@/lib/catalog-presence";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -18,70 +19,84 @@ export const metadata: Metadata = {
     "Browse the Dawana portfolio across six therapeutic areas, supplied to hospitals, clinics and pharmacies throughout Kuwait.",
 };
 
-/* Must be dynamic. The page reads searchParams (the area filter), which is
-   per-request. Without this, a build with an empty catalogue bails out via
-   notFound() before reaching it,
-   so Next prerenders a static 404 — and the first render after a product is
-   published would then try to go dynamic at runtime and throw. */
+/* Must be dynamic. The page reads searchParams (the area and collection
+   filters), which are per-request. Without this, a build with an empty
+   catalogue bails out via notFound() before reaching them, so Next prerenders
+   a static 404 — and the first render after a product is published would
+   then try to go dynamic at runtime and throw. */
 export const dynamic = "force-dynamic";
+
+const chip = (active: boolean) =>
+  cn(
+    "rounded-capsule border px-4 py-2 text-[0.82rem] transition-colors duration-300",
+    active
+      ? "border-deep bg-deep text-mint-50"
+      : "border-[color:var(--color-hairline)] text-ink-soft hover:border-mint-500 hover:bg-mint-50",
+  );
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ area?: string }>;
+  searchParams: Promise<{ area?: string; collection?: string }>;
 }) {
   /* The page doesn't exist for visitors until something is published in the
      admin. Decided on the whole catalogue, not the current filter, so an
      empty therapeutic area still shows its "nothing here yet" state. */
   if (!hasCatalog(await getCatalogPresence())) notFound();
 
-  const { area } = await searchParams;
-  const { products, collections, configured } = await getCatalog(area);
+  const { area, collection } = await searchParams;
+  const { products, collections, activeCollection, configured } = await getCatalog({
+    area,
+    collection,
+  });
 
   const activeArea = THERAPEUTIC_AREAS.find((a) => a.id === area);
+  const filtered = Boolean(activeArea || activeCollection);
 
   return (
     <>
       <PageHero
-        eyebrow="Portfolio"
-        title={activeArea ? activeArea.name : "The Dawana portfolio."}
+        eyebrow={activeCollection ? "Collection" : "Portfolio"}
+        title={activeCollection?.name ?? activeArea?.name ?? "The Dawana portfolio."}
         lede={
-          activeArea
-            ? activeArea.blurb
-            : "Registered, stored and distributed under one chain of custody — from the manufacturer's line to the dispensing counter."
+          activeCollection?.description ??
+          activeArea?.blurb ??
+          "Registered, stored and distributed under one chain of custody — from the manufacturer's line to the dispensing counter."
         }
       >
         {/* Filter chips. Plain links so the filter is deep-linkable,
             shareable and works with the back button. */}
         <nav aria-label="Filter by therapeutic area" className="flex flex-wrap gap-2">
-          <Link
-            href="/products"
-            aria-current={!area ? "page" : undefined}
-            className={cn(
-              "rounded-capsule border px-4 py-2 text-[0.82rem] transition-colors duration-300",
-              !area
-                ? "border-deep bg-deep text-mint-50"
-                : "border-[color:var(--color-hairline)] text-ink-soft hover:border-mint-500 hover:bg-mint-50",
-            )}
-          >
-            All areas
+          <Link href="/products" aria-current={!filtered ? "page" : undefined} className={chip(!filtered)}>
+            All products
           </Link>
           {THERAPEUTIC_AREAS.map((a) => (
             <Link
               key={a.id}
               href={`/products?area=${a.id}`}
               aria-current={area === a.id ? "page" : undefined}
-              className={cn(
-                "rounded-capsule border px-4 py-2 text-[0.82rem] transition-colors duration-300",
-                area === a.id
-                  ? "border-deep bg-deep text-mint-50"
-                  : "border-[color:var(--color-hairline)] text-ink-soft hover:border-mint-500 hover:bg-mint-50",
-              )}
+              className={chip(area === a.id)}
             >
               {a.name}
             </Link>
           ))}
         </nav>
+
+        {collections.length > 0 && (
+          <nav aria-label="Filter by collection" className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="u-eyebrow mr-1 text-ink-faint">Collections</span>
+            {collections.map((c) => (
+              <Link
+                key={c.id}
+                href={`/products?collection=${c.slug}`}
+                aria-current={collection === c.slug ? "page" : undefined}
+                className={chip(collection === c.slug)}
+              >
+                {c.name}
+              </Link>
+            ))}
+          </nav>
+        )}
       </PageHero>
 
       <section className="relative pb-8">
@@ -89,10 +104,18 @@ export default async function ProductsPage({
           {products.length === 0 ? (
             <EmptyState
               configured={configured}
-              title={activeArea ? `No products in ${activeArea.name} yet` : "No products published yet"}
+              title={
+                activeCollection
+                  ? `Nothing in ${activeCollection.name} yet`
+                  : activeArea
+                    ? `No products in ${activeArea.name} yet`
+                    : collection
+                      ? "That collection isn't available"
+                      : "No products published yet"
+              }
               body={
-                activeArea
-                  ? "This therapeutic area has no published products at the moment. Try another area, or get in touch for the current line card."
+                filtered || collection
+                  ? "Nothing is published here at the moment. Try another area, or get in touch for the current line card."
                   : "Products added in the control room will appear here once published."
               }
               cta={{ href: "/contact", label: "Request the line card" }}
@@ -109,11 +132,12 @@ export default async function ProductsPage({
                 className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
               >
                 {products.map((p) => (
-                  <article
+                  <Link
                     key={p.id}
-                    className="group relative flex flex-col overflow-hidden rounded-card border border-[color:var(--color-hairline)] bg-paper-pure/70 backdrop-blur-[2px] transition-colors duration-500 hover:border-mint-400"
+                    href={`/products/${p.slug}`}
+                    className="group relative flex flex-col overflow-hidden rounded-card border border-[color:var(--color-hairline)] bg-paper-pure/70 backdrop-blur-[2px] transition-[border-color,box-shadow] duration-500 hover:border-mint-400 hover:shadow-[0_24px_50px_-30px_rgba(3,90,81,0.45)]"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-mint-50">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-mint-50 to-paper">
                       {p.image_url ? (
                         <Image
                           src={p.image_url}
@@ -142,7 +166,9 @@ export default async function ProductsPage({
 
                     <div className="flex flex-1 flex-col p-6">
                       <p className="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-mint-600">
-                        {p.therapeutic_area ?? p.collection?.name ?? "Portfolio"}
+                        {THERAPEUTIC_AREAS.find((a) => a.id === p.therapeutic_area)?.name ??
+                          p.collections?.[0]?.name ??
+                          "Portfolio"}
                       </p>
 
                       <h2 className="mt-3 font-display text-[1.2rem] font-semibold leading-snug tracking-tight text-deep">
@@ -174,28 +200,24 @@ export default async function ProductsPage({
                             <dd className="mt-0.5 text-deep">{p.pack_size}</dd>
                           </div>
                         )}
-                        {p.manufacturer && (
-                          <div className="col-span-2">
-                            <dt className="text-ink-faint">Manufacturer</dt>
-                            <dd className="mt-0.5 text-deep">{p.manufacturer}</dd>
-                          </div>
-                        )}
                       </dl>
 
-                      {p.price != null && (
-                        <p className="mt-4 font-mono text-[0.95rem] tabular-nums text-deep">
-                          {formatMoney(p.price, p.currency)}
-                        </p>
-                      )}
+                      <span className="mt-5 inline-flex items-center gap-1.5 text-[0.84rem] font-medium text-deep transition-colors duration-300 group-hover:text-mint-600">
+                        View product details
+                        <ArrowUpRight
+                          className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                          aria-hidden="true"
+                        />
+                      </span>
                     </div>
-                  </article>
+                  </Link>
                 ))}
               </Reveal>
             </>
           )}
 
           {/* Collections */}
-          {collections.length > 0 && (
+          {!filtered && collections.length > 0 && (
             <div id="collections" className="mt-24 scroll-mt-32">
               <SplitText
                 as="h2"
@@ -213,8 +235,8 @@ export default async function ProductsPage({
                 {collections.map((c) => (
                   <Link
                     key={c.id}
-                    href={`/products?area=${c.therapeutic_area ?? ""}`}
-                    className="group rounded-card border border-[color:var(--color-hairline)] bg-paper-pure/70 p-7 backdrop-blur-[2px] transition-colors duration-500 hover:border-mint-400"
+                    href={`/products?collection=${c.slug}`}
+                    className="group flex flex-col rounded-card border border-[color:var(--color-hairline)] bg-paper-pure/70 p-7 backdrop-blur-[2px] transition-colors duration-500 hover:border-mint-400"
                   >
                     <h3 className="font-display text-[1.2rem] font-semibold tracking-tight text-deep">
                       {c.name}
@@ -224,6 +246,10 @@ export default async function ProductsPage({
                         {c.description}
                       </p>
                     )}
+                    <span className="mt-6 inline-flex items-center gap-1.5 text-[0.84rem] font-medium text-deep transition-colors duration-300 group-hover:text-mint-600">
+                      Browse collection
+                      <ArrowUpRight className="size-4" aria-hidden="true" />
+                    </span>
                   </Link>
                 ))}
               </Reveal>
