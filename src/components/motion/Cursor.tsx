@@ -34,6 +34,7 @@ const DARK = [
   ".bg-deep",
   ".bg-night",
   ".nav-card",
+  ".dw-transition[data-active]",
   // Frame is full-bleed but shaped by clip-path; hit-testing respects the
   // clip, so this only matches over the visible photograph.
   ".scroll-expand__frame",

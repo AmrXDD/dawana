@@ -573,44 +573,55 @@
 }
 
 /* ============================================================
-   PAGE TRANSITIONS
+   PAGE TRANSITIONS — rising capsules
+   Geometry must match PageTransition.tsx: 5 columns, so each capsule is
+   20vw wide with a 10vw semicircular cap at both ends. Parked below the
+   screen by default; the Web Animations API moves them.
    ============================================================ */
 
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 14px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+.dw-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above the nav (60), below the cursor */
+  pointer-events: none;
+  visibility: hidden;
 }
 
-@keyframes veil-out {
-  0% {
-    transform: scaleY(1);
-    transform-origin: top;
-  }
-  100% {
-    transform: scaleY(0);
-    transform-origin: top;
-  }
+/* While active it also swallows clicks, so nothing fires mid-transition. */
+.dw-transition[data-active] {
+  visibility: visible;
+  pointer-events: auto;
 }
 
-.a-page-in {
-  animation: page-in 0.62s var(--ease-out-quint) both;
+.dw-transition__capsule {
+  position: absolute;
+  top: -10vw;
+  height: calc(100vh + 20vw);
+  border-radius: 999px;
+  transform: translate3d(0, calc(100vh + 10vw), 0);
+  background-image: linear-gradient(
+    180deg,
+    #04221f 0%,
+    #062f2a 26%,
+    #04524a 58%,
+    #035a51 78%,
+    #0b4a42 100%
+  );
+  /* Faint lip of light on the leading cap gives each capsule its volume. */
+  box-shadow:
+    inset 0 1px 0 rgba(219, 243, 236, 0.1),
+    inset 0 -1px 0 rgba(219, 243, 236, 0.06);
+  will-change: transform;
 }
 
-.a-veil-out {
-  animation: veil-out 0.72s var(--ease-in-out-quart) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .a-page-in,
-  .a-veil-out {
-    animation: none !important;
-  }
+.dw-transition__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* ============================================================
