@@ -645,3 +645,122 @@ body:has(.dw-loader) {
   animation: dw-dial-spin 14s linear infinite;
   transform-origin: 50% 50%;
 }
+
+/* ============================================================
+   CURSOR — dot + hairline ring
+   Size changes animate width/height, not scale(), so the 1px ring stays a
+   true hairline instead of thickening and blurring as it grows.
+   ============================================================ */
+
+html.has-custom-cursor,
+html.has-custom-cursor *,
+html.has-custom-cursor *::before,
+html.has-custom-cursor *::after {
+  cursor: none !important;
+}
+
+/* Native caret where character-level precision matters. */
+html.has-custom-cursor
+  :is(
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="submit"], [type="button"]),
+    textarea,
+    [contenteditable="true"]
+  ) {
+  cursor: text !important;
+}
+
+.dw-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out-quint);
+  will-change: transform;
+}
+
+.dw-cursor[data-visible="true"] {
+  opacity: 1;
+}
+
+.dw-cursor > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  border-radius: 999px;
+}
+
+/* ---- Ring ---- */
+.dw-cursor--ring > span {
+  --size: 34px;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  border: 1px solid rgba(3, 90, 81, 0.42);
+  transition:
+    width 0.55s var(--ease-out-quint),
+    height 0.55s var(--ease-out-quint),
+    margin 0.55s var(--ease-out-quint),
+    transform 0.35s var(--ease-out-quint),
+    border-color 0.4s var(--ease-out-quint),
+    background-color 0.4s var(--ease-out-quint),
+    opacity 0.3s var(--ease-out-quint);
+}
+
+.dw-cursor--ring[data-state="hover"] > span {
+  --size: 56px;
+  border-color: rgba(3, 90, 81, 0.2);
+  background-color: rgba(92, 188, 167, 0.12);
+}
+
+.dw-cursor--ring[data-state="text"] > span {
+  --size: 14px;
+  opacity: 0;
+}
+
+.dw-cursor--ring[data-pressed="true"] > span {
+  transform: scale(0.86);
+}
+
+/* ---- Dot ---- */
+.dw-cursor--dot > span {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  background-color: var(--color-deep);
+  transition:
+    transform 0.4s var(--ease-out-quint),
+    background-color 0.4s var(--ease-out-quint),
+    opacity 0.3s var(--ease-out-quint);
+}
+
+/* Over something clickable the dot sinks into the ring. */
+.dw-cursor--dot[data-state="hover"] > span {
+  transform: scale(0);
+}
+
+.dw-cursor--dot[data-state="text"] > span {
+  opacity: 0;
+}
+
+/* ---- On dark surfaces ---- */
+.dw-cursor--ring[data-theme="dark"] > span {
+  border-color: rgba(219, 243, 236, 0.55);
+}
+
+.dw-cursor--ring[data-theme="dark"][data-state="hover"] > span {
+  border-color: rgba(219, 243, 236, 0.28);
+  background-color: rgba(219, 243, 236, 0.08);
+}
+
+.dw-cursor--dot[data-theme="dark"] > span {
+  background-color: #dbf3ec;
+}
+
+@media print {
+  .dw-cursor {
+    display: none !important;
+  }
+}

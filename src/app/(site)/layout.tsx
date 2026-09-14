@@ -4,6 +4,7 @@ import Backdrop from "@/components/site/Backdrop";
 import SiteGate from "@/components/site/SiteGate";
 import SmoothScroll from "@/components/motion/SmoothScroll";
 import PageTransition from "@/components/motion/PageTransition";
+import Cursor from "@/components/motion/Cursor";
 
 /* Without JavaScript the loader could never finish, so drop it and show the
    server-rendered site instead of an eternal monitor screen. */
@@ -17,6 +18,8 @@ export default function SiteLayout({
     <>
       <noscript dangerouslySetInnerHTML={{ __html: NO_JS_FALLBACK }} />
       <Backdrop />
+      {/* Outside the gate so it also works over the heartbeat loader. */}
+      <Cursor />
       <SiteGate>
         <SmoothScroll />
         <SiteNav />
