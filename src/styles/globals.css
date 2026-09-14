@@ -618,15 +618,65 @@
    Pure CSS so it holds from the very first paint, before any JS runs.
    ============================================================ */
 
-/* Lock scroll for as long as the loader exists in the DOM. */
-html:has(.dw-loader),
-body:has(.dw-loader) {
-  overflow: hidden;
-}
+/* Scroll is NOT locked with overflow:hidden. Hiding the root overflow removes
+   the scrollbar, and releasing it at the end of the handover shifts every
+   centred element (including the nav logo the wordmark lands on) by half the
+   scrollbar width. scrollbar-gutter:stable doesn't reserve space for a hidden
+   root in Chromium. SiteGate blocks scroll input in JS instead, so the
+   scrollbar — and the page width — never change. */
 
-/* The site is rendered but invisible until the gate opens. */
+/* The site is rendered but invisible until the gate opens, then fades up
+   instead of popping in. Visibility flips immediately; only opacity eases.
+   Opacity (unlike transform/filter) does not create a containing block, so
+   ScrollTrigger pins inside still position against the viewport. */
+[data-gate] {
+  transition: opacity 0.9s var(--ease-out-quint);
+}
 [data-gate="closed"] {
   visibility: hidden;
+  opacity: 0;
+  transition: none;
+}
+
+/* Loader entrance runs in CSS so it starts on first paint, before hydration
+   — no flash of a fully drawn logo that JS then hides and re-reveals. */
+@keyframes dw-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes dw-tagline {
+  from {
+    opacity: 0;
+    letter-spacing: 0.46em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: var(--text-eyebrow--letter-spacing);
+  }
+}
+
+.dw-loader__word {
+  animation: dw-wipe 1.1s var(--ease-out-quint) both;
+}
+
+.dw-loader__tagline {
+  animation: dw-tagline 1.4s var(--ease-out-quint) 0.35s both;
+}
+
+.dw-loader__head {
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out-quint);
+  filter: drop-shadow(0 0 3px rgba(92, 188, 167, 0.7));
 }
 
 /* Decorative CSS loops wait too, so marquees don't start mid-cycle. */

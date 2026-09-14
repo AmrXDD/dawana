@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -26,8 +26,18 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
  */
 export default function Hero() {
   const root = useRef<HTMLElement>(null);
-  // The WebGL context spins up only once the loader has opened.
   const ready = useSiteReady();
+
+  /* WebGL context creation and shader compilation block the main thread for a
+     noticeable beat. Starting the rays the moment the gate opens would stutter
+     the loader-to-site handover and the headline entrance, so they wait until
+     both have played out, then fade in. */
+  const [rays, setRays] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    const id = window.setTimeout(() => setRays(true), 2600);
+    return () => window.clearTimeout(id);
+  }, [ready]);
 
   useGSAP(
     () => {
@@ -116,9 +126,11 @@ export default function Hero() {
           low-opacity so it reads as clinical daylight, not a nightclub. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-20 opacity-[0.55]"
+        className={`pointer-events-none absolute inset-0 -z-20 transition-opacity duration-[2000ms] ease-out ${
+          rays ? "opacity-[0.55]" : "opacity-0"
+        }`}
       >
-        {ready && (
+        {rays && (
         <SideRays
           speed={1.1}
           rayColor1={PALETTE.mint}

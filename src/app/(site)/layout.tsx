@@ -9,7 +9,7 @@ import Cursor from "@/components/motion/Cursor";
 /* Without JavaScript the loader could never finish, so drop it and show the
    server-rendered site instead of a loader that never leaves. */
 const NO_JS_FALLBACK =
-  "<style>.dw-loader{display:none!important}[data-gate]{visibility:visible!important}html,body{overflow:auto!important}</style>";
+  "<style>.dw-loader{display:none!important}[data-gate]{visibility:visible!important;opacity:1!important}</style>";
 
 export default function SiteLayout({
   children,

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useState,
   type ReactNode,
@@ -30,7 +31,7 @@ let booted = false;
  * The site is still server-rendered underneath — search engines and no-JS
  * visitors get real content — but until the gate opens it is:
  *   - invisible and inert   (`data-gate="closed"` + `inert`: no focus, no clicks)
- *   - unscrollable          (CSS `:has(.dw-loader)` locks html/body from first paint)
+ *   - unscrollable          (scroll input blocked in JS; the scrollbar stays put)
  *   - frozen                (GSAP's global timeline is paused, so every entrance
  *                            animation waits at its start state and plays fresh
  *                            on reveal instead of finishing unseen)
@@ -57,16 +58,49 @@ export default function SiteGate({ children }: { children: ReactNode }) {
     };
   }, [ready]);
 
+  /* Scroll lock without overflow:hidden. Hiding the root overflow removes the
+     scrollbar, and giving it back at the end of the handover shifts the whole
+     page sideways. Instead the scrollbar stays put and scroll input is
+     swallowed while the loader is up; a drag on the scrollbar itself is
+     snapped back. The page width never changes, so nothing can jump. */
+  useEffect(() => {
+    if (!showLoader) return;
+
+    const KEYS = new Set([" ", "PageDown", "PageUp", "ArrowDown", "ArrowUp", "Home", "End"]);
+    const block = (e: Event) => e.preventDefault();
+    const onKey = (e: KeyboardEvent) => {
+      if (KEYS.has(e.key)) e.preventDefault();
+    };
+    const pin = () => {
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+    };
+
+    window.addEventListener("wheel", block, { passive: false });
+    window.addEventListener("touchmove", block, { passive: false });
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", pin, { passive: true });
+
+    return () => {
+      window.removeEventListener("wheel", block);
+      window.removeEventListener("touchmove", block);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", pin);
+    };
+  }, [showLoader]);
+
   const open = useCallback(() => {
     booted = true;
     window.scrollTo(0, 0);
     setReady(true);
-    // Two frames: one for the gate to become visible, one for Lenis to
-    // attach — then pins and triggers measure the real, live document.
-    requestAnimationFrame(() => requestAnimationFrame(() => ScrollTrigger.refresh()));
   }, []);
 
-  const done = useCallback(() => setShowLoader(false), []);
+  /* ScrollTrigger.refresh() re-measures every pin and trigger — a synchronous
+     layout pass that would hitch the wordmark mid-glide if run on open.
+     Nothing can scroll until the loader unmounts, so measure then instead. */
+  const done = useCallback(() => {
+    setShowLoader(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => ScrollTrigger.refresh()));
+  }, []);
 
   return (
     <ReadyContext.Provider value={ready}>

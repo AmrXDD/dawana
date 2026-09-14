@@ -5,31 +5,62 @@ import { useEffect, useRef } from "react";
 import { BRAND } from "@/lib/brand";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Loader — the wordmark and a single heartbeat.
+   Loader — the wordmark and a single heartbeat, then it becomes the header.
 
-   A hairline beneath the logo fills as the page genuinely loads and ends in
-   one pulse — the same spike that forms the "w" in the wordmark — then the
-   whole thing fades into the site. Same bone ground as the page, so the
-   handoff is a dissolve rather than a scene change.
+   The wordmark wipes in along the direction the trace travels. A hairline
+   beneath it fills as the page genuinely loads, with a soft dot riding the
+   tip; when the fill crosses the R-peak (the spike that forms the "w" in the
+   logo) the wordmark takes one gentle beat. The tagline settles in beneath.
+
+   The exit is the point: rather than fading away and letting the site pop in,
+   the wordmark glides into its exact place in the navigation while the site
+   fades up underneath, then hands over to the real nav logo on landing. The
+   loader is transparent over the shared backdrop, so the ground never changes.
 
    GSAP-free on purpose: SiteGate pauses GSAP's global timeline while this is
-   up, so it runs on requestAnimationFrame and the Web Animations API.
+   up, so it runs on requestAnimationFrame, CSS and the Web Animations API.
    ───────────────────────────────────────────────────────────────────────── */
 
-// Flat baseline, then one tall-R pulse near the end, echoing the wordmark.
-const PULSE = "M1 12 H118 L124 2 L130 22 L135 12 H159";
+const TRACE: ReadonlyArray<readonly [number, number]> = [
+  [1, 12],
+  [118, 12],
+  [124, 2], // R-peak
+  [130, 22],
+  [135, 12],
+  [159, 12],
+];
+const PULSE = `M ${TRACE.map(([x, y]) => `${x} ${y}`).join(" L ")}`;
+
+/** How far along the trace the R-peak sits — the moment the logo beats. */
+const R_PEAK_AT = (() => {
+  let total = 0;
+  let toPeak = 0;
+  for (let i = 1; i < TRACE.length; i++) {
+    const [x0, y0] = TRACE[i - 1];
+    const [x1, y1] = TRACE[i];
+    total += Math.hypot(x1 - x0, y1 - y0);
+    if (i === 2) toPeak = total;
+  }
+  return toPeak / total;
+})();
+
+const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
+const EASE_IN_OUT = "cubic-bezier(0.65, 0, 0.35, 1)";
 
 interface HeartbeatLoaderProps {
-  /** Fired as the loader starts fading — the site begins revealing. */
+  /** Fired as the site should begin fading in. */
   onOpen: () => void;
-  /** Fired once it's fully gone — safe to unmount. */
+  /** Fired once the handover is complete — safe to unmount. */
   onDone: () => void;
 }
 
 export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps) {
   const root = useRef<HTMLDivElement>(null);
-  const mark = useRef<HTMLDivElement>(null);
-  const line = useRef<SVGPathElement>(null);
+  const flip = useRef<HTMLDivElement>(null);
+  const beat = useRef<HTMLDivElement>(null);
+  const trail = useRef<HTMLDivElement>(null);
+  const fill = useRef<SVGPathElement>(null);
+  const head = useRef<SVGCircleElement>(null);
 
   // Latest callbacks without re-running the effect.
   const openRef = useRef(onOpen);
@@ -38,9 +69,10 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
   doneRef.current = onDone;
 
   useEffect(() => {
-    const el = root.current;
-    const path = line.current;
-    if (!el || !path) {
+    const path = fill.current;
+    const dot = head.current;
+    const mark = flip.current;
+    if (!root.current || !path || !dot || !mark) {
       openRef.current();
       doneRef.current();
       return;
@@ -55,8 +87,8 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
       /* private mode */
     }
 
-    // Long enough for the line to read as a gesture; brisk on repeat visits.
-    const MIN = reduced ? 400 : seen ? 700 : 1500;
+    // Long enough for the gesture to read; brisk on repeat visits.
+    const MIN = reduced ? 400 : seen ? 900 : 1900;
     // Hard ceiling — a slow asset must never hold a visitor on this screen.
     const MAX = 8000;
 
@@ -79,12 +111,86 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
     let shown = 0;
     let raf = 0;
     let finished = false;
+    let beaten = false;
+
+    /* One gentle beat. Lives on an inner wrapper so it composes with the
+       exit glide on the outer one instead of fighting it for `transform`. */
+    const beatOnce = () => {
+      beaten = true;
+      beat.current?.animate(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(1.022)", offset: 0.3 },
+          { transform: "scale(0.996)", offset: 0.62 },
+          { transform: "scale(1)" },
+        ],
+        { duration: 760, easing: EASE_OUT },
+      );
+    };
+
+    /* ---- Exit: the wordmark becomes the navigation logo ---- */
+    const exit = () => {
+      trail.current?.animate(
+        [
+          { opacity: 1, transform: "translateY(0)" },
+          { opacity: 0, transform: "translateY(6px)" },
+        ],
+        { duration: 480, easing: EASE_OUT, fill: "forwards" },
+      );
+
+      // The nav is rendered (just hidden) behind the loader, so it can be
+      // measured before the site is visible.
+      const target = document.querySelector<HTMLElement>(".dawana-nav .logo");
+      const from = mark.getBoundingClientRect();
+      const to = target?.getBoundingClientRect();
+      const canGlide = !reduced && !!to && to.height > 0 && from.height > 0;
+
+      if (!canGlide || !to) {
+        mark.animate([{ opacity: 1 }, { opacity: 0 }], {
+          duration: 600,
+          delay: 120,
+          easing: EASE_OUT,
+          fill: "forwards",
+        });
+        later(() => openRef.current(), 200);
+        later(() => doneRef.current(), 900);
+        return;
+      }
+
+      // Centre-to-centre, so a not-yet-sized nav image still lands correctly.
+      const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+      const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+      const scale = to.height / from.height;
+
+      mark.animate(
+        [
+          { transform: "translate3d(0, 0, 0) scale(1)" },
+          { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scale})` },
+        ],
+        { duration: 1050, delay: 140, easing: EASE_IN_OUT, fill: "forwards" },
+      );
+
+      // The site fades up underneath while the mark is still in flight…
+      later(() => openRef.current(), 640);
+
+      // …and the loader's copy hands over to the real nav logo as it lands
+      // (glide ends at 1190ms). Same asset, same position: a seamless swap.
+      mark.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: 300,
+        delay: 1120,
+        easing: "linear",
+        fill: "forwards",
+      });
+
+      later(() => doneRef.current(), 1500);
+    };
 
     const finish = (animate: boolean) => {
       if (finished) return;
       finished = true;
       cancelAnimationFrame(raf);
       path.style.strokeDashoffset = "0";
+      dot.style.opacity = "0";
       try {
         sessionStorage.setItem("dw-loaded", "1");
       } catch {
@@ -97,21 +203,9 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
         return;
       }
 
-      // A brief hold so the completed beat registers, then dissolve.
-      later(() => {
-        openRef.current();
-        const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
-        el.animate([{ opacity: 1 }, { opacity: 0 }], {
-          duration: 650,
-          easing: ease,
-          fill: "forwards",
-        });
-        mark.current?.animate(
-          [{ transform: "translateY(0)" }, { transform: "translateY(-8px)" }],
-          { duration: 650, easing: ease, fill: "forwards" },
-        );
-        later(() => doneRef.current(), 680);
-      }, reduced ? 0 : 280);
+      if (!beaten && !reduced) beatOnce();
+      // Let the beat land before the mark starts to move.
+      later(exit, reduced ? 0 : 520);
     };
 
     const frame = (now: number) => {
@@ -126,10 +220,17 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
       let target = Math.min(elapsed / MIN, 1, 0.15 + 0.85 * readiness);
       if (elapsed > MAX) target = 1;
 
-      shown += (target - shown) * (1 - Math.exp(-dt / 140));
+      shown += (target - shown) * (1 - Math.exp(-dt / 150));
       if (target === 1 && shown > 0.995) shown = 1;
 
       path.style.strokeDashoffset = `${len * (1 - shown)}`;
+
+      const tip = path.getPointAtLength(len * shown);
+      dot.setAttribute("cx", `${tip.x}`);
+      dot.setAttribute("cy", `${tip.y}`);
+      dot.style.opacity = shown > 0.01 && shown < 1 ? "1" : "0";
+
+      if (!beaten && !reduced && shown >= R_PEAK_AT) beatOnce();
       if (shown === 1) finish(true);
     };
 
@@ -152,44 +253,53 @@ export default function HeartbeatLoader({ onOpen, onDone }: HeartbeatLoaderProps
   }, []);
 
   return (
-    <div
-      ref={root}
-      className="dw-loader fixed inset-0 z-[100] grid place-items-center bg-paper"
-    >
-      <div ref={mark} className="flex flex-col items-center gap-5">
-        <Image
-          src="/brand/dawana-wordmark.png"
-          alt=""
-          width={1804}
-          height={783}
-          priority
-          className="h-auto w-[132px] md:w-[152px]"
-        />
+    // Transparent: the site's own backdrop is the ground, so nothing behind
+    // the mark changes when the site fades in.
+    <div ref={root} className="dw-loader fixed inset-0 z-[100] grid place-items-center">
+      <div className="flex flex-col items-center">
+        <div ref={flip} className="will-change-transform">
+          <div ref={beat}>
+            <Image
+              src="/brand/dawana-wordmark.png"
+              alt=""
+              width={1804}
+              height={783}
+              priority
+              className="dw-loader__word h-auto w-[136px] md:w-[160px]"
+            />
+          </div>
+        </div>
 
-        <svg
-          viewBox="0 0 160 24"
-          className="h-auto w-[132px] overflow-visible md:w-[152px]"
-          fill="none"
-          aria-hidden="true"
-        >
-          {/* Faint track */}
-          <path
-            d={PULSE}
-            stroke="rgba(3, 90, 81, 0.12)"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Fill */}
-          <path
-            ref={line}
-            d={PULSE}
-            stroke="#5cbca7"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <div ref={trail} className="mt-6 flex flex-col items-center">
+          <svg
+            viewBox="0 0 160 24"
+            className="h-auto w-[136px] overflow-visible md:w-[160px]"
+            fill="none"
+            aria-hidden="true"
+          >
+            {/* Faint track */}
+            <path
+              d={PULSE}
+              stroke="rgba(3, 90, 81, 0.12)"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Fill */}
+            <path
+              ref={fill}
+              d={PULSE}
+              stroke="#5cbca7"
+              strokeWidth={1.75}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Tip */}
+            <circle ref={head} r={2.4} cx={1} cy={12} fill="#5cbca7" className="dw-loader__head" />
+          </svg>
+
+          <p className="dw-loader__tagline u-eyebrow mt-5 text-mint-600">{BRAND.tagline}</p>
+        </div>
       </div>
 
       <p role="status" aria-live="polite" className="sr-only">
