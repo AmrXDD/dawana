@@ -26,7 +26,6 @@ const TEXT =
   'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"], iframe';
 
 const DARK = [
-  ".dw-loader",
   ".u-band-dark",
   ".u-band-descend",
   ".u-band-descend-dark",

@@ -635,16 +635,6 @@ body:has(.dw-loader) {
   animation-play-state: paused;
 }
 
-@keyframes dw-dial-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.dw-dial {
-  animation: dw-dial-spin 14s linear infinite;
-  transform-origin: 50% 50%;
-}
 
 /* ============================================================
    CURSOR — dot + hairline ring
