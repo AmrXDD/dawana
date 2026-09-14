@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import { Panel } from "@/components/admin/Shell";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
 import { createClient } from "@/lib/supabase/client";
+import { revalidatePublicSite } from "@/lib/revalidate-site";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 import { cn, slugify } from "@/lib/utils";
 import type { Collection } from "@/lib/types";
@@ -89,6 +90,7 @@ export default function CollectionsManager({
 
       if (error) throw new Error(error.message);
       toast.success(editing ? "Collection updated." : "Collection created.");
+      revalidatePublicSite();
       setOpen(false);
       await refresh();
     } catch (err) {
@@ -109,6 +111,8 @@ export default function CollectionsManager({
     if (error) {
       setRows((prev) => prev.map((r) => (r.id === c.id ? c : r)));
       toast.error(error.message);
+    } else {
+      revalidatePublicSite();
     }
   }
 
@@ -128,6 +132,7 @@ export default function CollectionsManager({
       .from("collections")
       .upsert(repositioned.map(({ id, position }) => ({ id, position })));
     if (error) toast.error(error.message);
+    else revalidatePublicSite(); // order shows on the public collections list
   }
 
   async function remove(c: Collection) {
@@ -142,6 +147,7 @@ export default function CollectionsManager({
       toast.error(error.message);
     } else {
       toast.success("Collection deleted.");
+      revalidatePublicSite();
     }
   }
 

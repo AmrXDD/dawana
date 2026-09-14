@@ -7,6 +7,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { ArrowUpRight } from "lucide-react";
 import SplitText from "@/components/motion/SplitText";
+import { useCatalogPresence } from "@/components/site/CatalogPresence";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -20,6 +21,8 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
  */
 export default function TherapeuticsScroller() {
   const root = useRef<HTMLElement>(null);
+  // "View products" only once something is published in the admin.
+  const { hasProducts } = useCatalogPresence();
   const track = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
 
@@ -176,16 +179,18 @@ export default function TherapeuticsScroller() {
                   </p>
                 </div>
 
-                <Link
-                  href={`/products?area=${area.id}`}
-                  className="relative mt-8 inline-flex items-center gap-2 text-[0.85rem] font-medium text-mint transition-colors duration-300 hover:text-mint-200"
-                >
-                  View products
-                  <ArrowUpRight
-                    className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                    aria-hidden="true"
-                  />
-                </Link>
+                {hasProducts && (
+                  <Link
+                    href={`/products?area=${area.id}`}
+                    className="relative mt-8 inline-flex items-center gap-2 text-[0.85rem] font-medium text-mint transition-colors duration-300 hover:text-mint-200"
+                  >
+                    View products
+                    <ArrowUpRight
+                      className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )}
               </article>
             ))}
           </div>

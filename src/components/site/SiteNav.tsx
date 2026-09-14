@@ -1,7 +1,9 @@
 "use client";
 
 import CardNav from "@/components/CardNav";
+import { useCatalogPresence } from "@/components/site/CatalogPresence";
 import { CONTACT, PALETTE } from "@/lib/brand";
+import { hasCatalog, type CatalogPresence } from "@/lib/catalog-presence";
 
 /**
  * Brand-configured wrapper around react-bits CardNav.
@@ -10,7 +12,7 @@ import { CONTACT, PALETTE } from "@/lib/brand";
  * overrides in globals.css pin it and widen it. Everything else is themed
  * through its colour props so the vendor file stays unforked.
  */
-const ITEMS = [
+const itemsFor = (presence: CatalogPresence) => [
   {
     label: "Company",
     bgColor: PALETTE.deep,
@@ -25,10 +27,15 @@ const ITEMS = [
     label: "Portfolio",
     bgColor: "#18564c",
     textColor: "#dbf3ec",
+    // Catalogue links appear only once something is published in the admin.
     links: [
       { label: "Therapeutics", href: "/therapeutics", ariaLabel: "Therapeutic areas" },
-      { label: "Products", href: "/products", ariaLabel: "Product catalogue" },
-      { label: "Collections", href: "/products#collections", ariaLabel: "Collections" },
+      ...(hasCatalog(presence)
+        ? [{ label: "Products", href: "/products", ariaLabel: "Product catalogue" }]
+        : []),
+      ...(presence.hasCollections
+        ? [{ label: "Collections", href: "/products#collections", ariaLabel: "Collections" }]
+        : []),
     ],
   },
   {
@@ -44,12 +51,14 @@ const ITEMS = [
 ];
 
 export default function SiteNav() {
+  const presence = useCatalogPresence();
+
   return (
     <div className="dawana-nav">
       <CardNav
         logo="/brand/dawana-wordmark.png"
         logoAlt="Dawana — Your Everyday Remedy"
-        items={ITEMS}
+        items={itemsFor(presence)}
         baseColor="rgba(245,242,237,0.88)"
         menuColor={PALETTE.deep}
         buttonBgColor={PALETTE.deep}

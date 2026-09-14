@@ -8,6 +8,7 @@ import Select from "@/components/ui/Select";
 import { Panel } from "@/components/admin/Shell";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
 import { createClient } from "@/lib/supabase/client";
+import { revalidatePublicSite } from "@/lib/revalidate-site";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 import { cn, formatMoney, slugify } from "@/lib/utils";
 import type { Collection, Product } from "@/lib/types";
@@ -149,6 +150,7 @@ export default function ProductsManager({
       if (error) throw new Error(error.message);
 
       toast.success(editing ? "Product updated." : "Product created.");
+      revalidatePublicSite();
       setOpen(false);
       await refresh();
     } catch (err) {
@@ -166,6 +168,8 @@ export default function ProductsManager({
     if (error) {
       setRows((prev) => prev.map((r) => (r.id === p.id ? p : r)));
       toast.error(error.message);
+    } else {
+      revalidatePublicSite();
     }
   }
 
@@ -181,6 +185,7 @@ export default function ProductsManager({
       toast.error(error.message);
     } else {
       toast.success("Product deleted.");
+      revalidatePublicSite();
     }
   }
 

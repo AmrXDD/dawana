@@ -7,6 +7,7 @@ import CTABand from "@/components/site/CTABand";
 import Reveal from "@/components/motion/Reveal";
 import PulseLine from "@/components/motion/PulseLine";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
+import { getCatalogPresence } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Therapeutics",
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
     "Six therapeutic areas — mom and baby care, diabetes, neurology, nutraceuticals, ophthalmology and oral care — served across Kuwait's public and private healthcare sectors.",
 };
 
-export default function TherapeuticsPage() {
+export default async function TherapeuticsPage() {
+  // "View products" only once something is published in the admin.
+  const { hasProducts } = await getCatalogPresence();
+
   return (
     <>
       <PageHero
@@ -58,16 +62,18 @@ export default function TherapeuticsPage() {
                       />
                     </div>
 
-                    <Link
-                      href={`/products?area=${area.id}`}
-                      className="group inline-flex shrink-0 items-center gap-2 rounded-capsule border border-[color:var(--color-hairline)] px-5 py-3 text-[0.85rem] text-deep transition-colors duration-300 hover:border-mint-500 hover:bg-mint-50 md:mt-2"
-                    >
-                      View products
-                      <ArrowUpRight
-                        className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                        aria-hidden="true"
-                      />
-                    </Link>
+                    {hasProducts && (
+                      <Link
+                        href={`/products?area=${area.id}`}
+                        className="group inline-flex shrink-0 items-center gap-2 rounded-capsule border border-[color:var(--color-hairline)] px-5 py-3 text-[0.85rem] text-deep transition-colors duration-300 hover:border-mint-500 hover:bg-mint-50 md:mt-2"
+                      >
+                        View products
+                        <ArrowUpRight
+                          className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                          aria-hidden="true"
+                        />
+                      </Link>
+                    )}
                   </div>
                 </Reveal>
               </li>

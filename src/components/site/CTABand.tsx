@@ -4,14 +4,19 @@ import Reveal from "@/components/motion/Reveal";
 import Magnetic from "@/components/motion/Magnetic";
 import { ButtonLink } from "@/components/ui/Button";
 import { CONTACT } from "@/lib/brand";
+import { getCatalogPresence } from "@/lib/catalog";
+import { hasCatalog } from "@/lib/catalog-presence";
 import { cn } from "@/lib/utils";
 
 /**
- * @param enter  What sits directly above this band.  (the skyline
+ * @param enter  What sits directly above this band. `dark` (the skyline
  *               plate) needs the ramp to start at night, otherwise the bone
  *               backdrop flashes through the transparent top edge.
  */
-export default function CTABand({ enter = "light" }: { enter?: "light" | "dark" }) {
+export default async function CTABand({ enter = "light" }: { enter?: "light" | "dark" }) {
+  // "Browse the portfolio" only once something is published in the admin.
+  const showPortfolio = hasCatalog(await getCatalogPresence());
+
   return (
     <section
       className={cn(
@@ -50,14 +55,16 @@ export default function CTABand({ enter = "light" }: { enter?: "light" | "dark" 
                   Start a conversation
                 </ButtonLink>
               </Magnetic>
-              <ButtonLink
-                href="/products"
-                size="lg"
-                variant="ghost"
-                className="text-mint-100 hover:bg-white/8"
-              >
-                Browse the portfolio
-              </ButtonLink>
+              {showPortfolio && (
+                <ButtonLink
+                  href="/products"
+                  size="lg"
+                  variant="ghost"
+                  className="text-mint-100 hover:bg-white/8"
+                >
+                  Browse the portfolio
+                </ButtonLink>
+              )}
             </Reveal>
           </div>
 

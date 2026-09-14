@@ -2,11 +2,12 @@ import Link from "next/link";
 import { Instagram, Mail, MapPin, Phone } from "lucide-react";
 import { Wordmark } from "@/components/ui/Logo";
 import SeamPulse from "@/components/site/SeamPulse";
-import { BRAND, CONTACT, NAV_LINKS, THERAPEUTIC_AREAS } from "@/lib/brand";
+import { BRAND, CONTACT, THERAPEUTIC_AREAS } from "@/lib/brand";
+import { navLinksFor, type CatalogPresence } from "@/lib/catalog-presence";
 
 /* The footer mirrors the printed letterhead: contact block with icons on the
    left, ECG trace crossing the full width, deep-teal ground. */
-export default function Footer() {
+export default function Footer({ presence }: { presence: CatalogPresence }) {
   const year = new Date().getFullYear();
 
   const contactRows = [
@@ -37,7 +38,7 @@ export default function Footer() {
           <nav aria-label="Footer">
             <h2 className="u-eyebrow text-mint-400">Navigate</h2>
             <ul className="mt-6 space-y-3.5">
-              {NAV_LINKS.map((l) => (
+              {navLinksFor(presence).map((l) => (
                 <li key={l.href}>
                   <Link
                     href={l.href}

@@ -6,7 +6,9 @@ import CTABand from "@/components/site/CTABand";
 import EmptyState from "@/components/site/EmptyState";
 import Reveal from "@/components/motion/Reveal";
 import SplitText from "@/components/motion/SplitText";
-import { getCatalog } from "@/lib/catalog";
+import { notFound } from "next/navigation";
+import { getCatalog, getCatalogPresence } from "@/lib/catalog";
+import { hasCatalog } from "@/lib/catalog-presence";
 import { THERAPEUTIC_AREAS } from "@/lib/brand";
 import { cn, formatMoney } from "@/lib/utils";
 
@@ -24,6 +26,11 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ area?: string }>;
 }) {
+  /* The page doesn't exist for visitors until something is published in the
+     admin. Decided on the whole catalogue, not the current filter, so an
+     empty therapeutic area still shows its "nothing here yet" state. */
+  if (!hasCatalog(await getCatalogPresence())) notFound();
+
   const { area } = await searchParams;
   const { products, collections, configured } = await getCatalog(area);
 

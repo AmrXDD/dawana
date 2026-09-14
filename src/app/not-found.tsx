@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/ui/Logo";
 import Backdrop from "@/components/site/Backdrop";
-import { NAV_LINKS } from "@/lib/brand";
+import { getCatalogPresence } from "@/lib/catalog";
+import { navLinksFor } from "@/lib/catalog-presence";
 
-export default function NotFound() {
+export default async function NotFound() {
+  // Don't offer a way back to /products when it would 404 too.
+  const links = navLinksFor(await getCatalogPresence());
+
   return (
     <>
       <Backdrop />
@@ -27,7 +31,7 @@ export default function NotFound() {
             >
               Back to reception
             </Link>
-            {NAV_LINKS.map((l) => (
+            {links.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
