@@ -228,6 +228,7 @@ const CardNav = ({
                       key={g.href}
                       className="nav-card-chip"
                       href={g.href}
+                      data-transition-label={g.label}
                       onClick={e => {
                         if (!e.defaultPrevented) setOpen(false);
                       }}

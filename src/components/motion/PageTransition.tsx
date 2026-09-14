@@ -161,12 +161,31 @@ export default function PageTransition({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /** While covered: land on the in-page target (/about#mission), else the top. */
+  const land = useCallback(() => {
+    const anchor = pendingHash.current
+      ? document.getElementById(decodeURIComponent(pendingHash.current.slice(1)))
+      : null;
+    window.scrollTo(0, anchor ? anchor.getBoundingClientRect().top + window.scrollY - 96 : 0);
+    pendingHash.current = "";
+    // Re-measure pins and triggers while nothing is visible to hitch.
+    ScrollTrigger.refresh();
+  }, []);
+
+  /** Lift the curtain once the destination has had time to read and paint. */
+  const revealAfterHold = useCallback(() => {
+    const hold = Math.max(0, 260 - (performance.now() - coveredAt.current));
+    return window.setTimeout(() => {
+      requestAnimationFrame(() => requestAnimationFrame(reveal));
+    }, hold);
+  }, [reveal]);
+
   const navigate = useCallback(
-    async (href: string, targetPath: string) => {
+    async (href: string, targetPath: string, opts: { label: string; samePage: boolean }) => {
       phase.current = "covering";
       pendingHash.current = new URL(href, window.location.href).hash;
-      setLabel(labelFor(targetPath));
-      router.prefetch(href);
+      setLabel(opts.label);
+      if (!opts.samePage) router.prefetch(href);
 
       await cover();
 
@@ -176,6 +195,21 @@ export default function PageTransition({ children }: { children: ReactNode }) {
 
       // Close the card menu if the click came from inside it.
       window.dispatchEvent(new Event("cardnav:close"));
+
+      /* Same page (a menu link to where you already are, or to a section of
+         it): no route change will arrive to finish the job, so do it here. */
+      if (opts.samePage) {
+        const url = new URL(href, window.location.href);
+        if (url.search !== window.location.search) {
+          router.push(href, { scroll: false });
+          await new Promise((r) => window.setTimeout(r, 380));
+        } else if (url.hash !== window.location.hash) {
+          window.history.replaceState(window.history.state, "", href);
+        }
+        land();
+        revealAfterHold();
+        return;
+      }
 
       router.push(href, { scroll: false });
 
@@ -189,7 +223,7 @@ export default function PageTransition({ children }: { children: ReactNode }) {
         if (phase.current === "covered") reveal();
       }, 8000);
     },
-    [cover, reveal, router],
+    [cover, land, reveal, revealAfterHold, router],
   );
 
   /* ---- Take internal link clicks ----
@@ -213,12 +247,20 @@ export default function PageTransition({ children }: { children: ReactNode }) {
       // The admin has its own layout; the capsules would be torn down mid-
       // reveal with the site layout. Let those navigate normally.
       if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api")) return;
-      // Same page (filters, anchors) stays instant.
-      if (url.pathname === window.location.pathname) return;
+      /* Same page: in-content links (filter chips, anchors) stay instant, but
+         a navbar link always answers with the curtain — otherwise the tab for
+         the page you're on, or a section of it, looks like it did nothing. */
+      const samePage = url.pathname === window.location.pathname;
+      if (samePage && !a.closest(".dawana-nav")) return;
 
       e.preventDefault();
       if (phase.current !== "idle") return;
-      navigate(url.pathname + url.search + url.hash, url.pathname);
+
+      // Section links name the section ("Mission & Vision"), pages the page.
+      const text = (a.dataset.transitionLabel ?? a.textContent ?? "").trim();
+      const label = url.hash && text && text.length <= 32 ? text : labelFor(url.pathname);
+
+      navigate(url.pathname + url.search + url.hash, url.pathname, { label, samePage });
     };
 
     window.addEventListener("click", onClick, true);
@@ -234,21 +276,10 @@ export default function PageTransition({ children }: { children: ReactNode }) {
 
     if (phase.current === "covered") {
       if (safety.current) window.clearTimeout(safety.current);
-      // Land on the in-page target for links like /about#mission, else the top.
-      const anchor = pendingHash.current
-        ? document.getElementById(decodeURIComponent(pendingHash.current.slice(1)))
-        : null;
-      window.scrollTo(0, anchor ? anchor.getBoundingClientRect().top + window.scrollY - 96 : 0);
-      pendingHash.current = "";
-      // Re-measure pins and triggers while nothing is visible to hitch.
-      ScrollTrigger.refresh();
-
+      land();
       // Hold long enough for the destination's name to read, and give the
       // new page two frames to paint before it's uncovered.
-      const hold = Math.max(0, 260 - (performance.now() - coveredAt.current));
-      const id = window.setTimeout(() => {
-        requestAnimationFrame(() => requestAnimationFrame(reveal));
-      }, hold);
+      const id = revealAfterHold();
       return () => window.clearTimeout(id);
     }
 
@@ -264,7 +295,7 @@ export default function PageTransition({ children }: { children: ReactNode }) {
       );
       requestAnimationFrame(() => ScrollTrigger.refresh());
     }
-  }, [pathname, reveal]);
+  }, [pathname, land, revealAfterHold]);
 
   useEffect(
     () => () => {
