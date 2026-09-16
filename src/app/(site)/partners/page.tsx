@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import PageHero from "@/components/site/PageHero";
 import CTABand from "@/components/site/CTABand";
-import EmptyState from "@/components/site/EmptyState";
+import PartnerLogo from "@/components/site/PartnerLogo";
 import Reveal from "@/components/motion/Reveal";
 import SplitText from "@/components/motion/SplitText";
 import { getPartners } from "@/lib/catalog";
+import { PARTNER_LOGOS } from "@/lib/partners";
 import { CHANNELS } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -55,7 +56,7 @@ interface PartnerRow {
 }
 
 export default async function PartnersPage() {
-  const { partners, configured } = await getPartners();
+  const { partners } = await getPartners();
   const rows = partners as PartnerRow[];
 
   return (
@@ -69,18 +70,27 @@ export default async function PartnersPage() {
       {/* Partner grid */}
       <section className="relative pb-8">
         <div className="u-shell">
-          {rows.length === 0 ? (
-            <EmptyState
-              configured={configured}
-              title="Partner directory coming soon"
-              body="Our manufacturing partners will be listed here. In the meantime, get in touch to discuss representation in Kuwait."
-              cta={{ href: "/contact", label: "Talk to us" }}
-            />
-          ) : (
+          <Reveal
+            stagger
+            each={0.04}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
+          >
+            {PARTNER_LOGOS.map((p) => (
+              <PartnerLogo
+                key={p.name}
+                partner={p}
+                className="aspect-[3/2] transition-colors duration-500 hover:border-mint-400"
+                sizes="(min-width: 1280px) 200px, (min-width: 640px) 180px, 45vw"
+              />
+            ))}
+          </Reveal>
+
+          {/* Partners published from the database, with blurbs and links. */}
+          {rows.length > 0 && (
             <Reveal
               stagger
               each={0.05}
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
             >
               {rows.map((p) => {
                 const card = (
